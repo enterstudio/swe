@@ -1,0 +1,11 @@
+{% extends "plain.html" %}
+{% block pageContentNoFormat %}
+<h3>Register for an account</h3>
+<p>
+Already registered? <a href="/login/">Login here</a>.
+</p>
+<form action="/register/" method="post">{% csrf_token %}
+{{ form.as_p }}
+<input type="submit" value="Register" class="btn-large btn-inverse" />
+</form>
+{% endblock %}

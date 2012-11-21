@@ -1,0 +1,15 @@
+Hello,
+
+Thank you for registering at Science Writing Experts.
+
+To activate your account, please click this link within 48 hours:
+
+http://sciencewritingexperts.com/confirm/{{ activation_key }}
+
+Or visit http://sciencewritingexperts.com/confirm and enter this activation key:
+
+{{ activation_key }}
+
+Sincerely,
+Nathan Hammond
+Director of Customer Satisfaction

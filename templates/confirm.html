@@ -1,0 +1,17 @@
+{% extends "plain.html" %}
+{% block pageContentNoFormat %}
+<h3>Account activation</h3>
+<p>
+You should receive an activation key by email shortly after registering.
+</p>
+<p>
+Please check your spam filter if you did not receive an activation key.
+</p>
+<form action="/confirm/" method="post">{% csrf_token %}
+{{ form.as_p }}
+<input type="submit" value="Click to activate account" class="btn-large btn-inverse" />
+</form>
+<p>
+Do you need us to send another activation key? <a href="/activationrequest/">Click here</a>.
+</p>
+{% endblock %}
