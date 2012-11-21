@@ -3,6 +3,7 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.views.generic.create_update import create_object
 from django.contrib import admin
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+from django.conf import settings
 from swe.views import home
 
 admin.autodiscover()
@@ -38,3 +39,8 @@ urlpatterns += patterns('',
     )
 
 urlpatterns += staticfiles_urlpatterns()
+
+if not settings.DEBUG:
+    urlpatterns += patterns('',
+        (r'^static/(?P<path>.*)$', 'django.views.static.serve', {'document_root': settings.STATIC_ROOT}),
+    )

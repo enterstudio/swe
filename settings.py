@@ -5,13 +5,15 @@ RACK_ENV=os.environ['RACK_ENV']
 
 BLOCK_SERVICE = False
 try:
-    BLOCK_SERVICE = (os.environ['BLOCK_SERVICE'].upper()=='TRUE')
+    b = (os.environ['BLOCK_SERVICE'].upper()=='TRUE')
+    BLOCK_SERVICE = b
 except KeyError:
     pass
 
 DEBUG = False
 try:
-    DEBUG = (os.environ['DEBUG'].upper()=='TRUE')
+    d = (os.environ['DEBUG'].upper()=='TRUE')
+    DEBUG = d
 except KeyError:
     pass
 
