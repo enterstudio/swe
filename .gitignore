@@ -3,4 +3,4 @@
 
 /media/
 /venv/
-/staticfiles/
+/staticfiles/*
