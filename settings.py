@@ -4,10 +4,10 @@ import os
 RACK_ENV=os.environ['RACK_ENV']
 
 BLOCK_SERVICE = False
-try:
-    BLOCK_SERVICE = (os.environ['BLOCK_SERVICE'].upper()=='TRUE')
-except Error:
-    pass
+#try:
+BLOCK_SERVICE = (os.environ['BLOCK_SERVICE'].upper()=='TRUE')
+#except KeyError:
+#    pass
 
 if not RACK_ENV=='production':
     DEBUG = True
