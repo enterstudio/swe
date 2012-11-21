@@ -9,10 +9,11 @@ try:
 except KeyError:
     pass
 
-if RACK_ENV=='production':
-    DEBUG = False
-else:
-    DEBUG = True
+DEBUG = False
+try:
+    DEBUG = (os.environ['DEBUG'].upper()=='TRUE')
+except KeyError:
+    pass
 
 TEMPLATE_DEBUG = DEBUG
 
