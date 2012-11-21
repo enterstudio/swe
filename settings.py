@@ -2,7 +2,7 @@
 import os
 import dj_database_url
 
-DEBUG = False
+DEBUG = True
 TEMPLATE_DEBUG = DEBUG
 
 BLOCK_SERVICE = True
@@ -159,4 +159,3 @@ LOGGING = {
         },
     }
 }
-
