@@ -2,10 +2,10 @@
 import os
 import dj_database_url
 
-DEBUG = True
+DEBUG = False
 TEMPLATE_DEBUG = DEBUG
 
-BLOCK_SERVICE = False
+BLOCK_SERVICE = True
 
 ADMINS = (
     # ('Your Name', 'your_email@example.com'),
