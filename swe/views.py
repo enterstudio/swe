@@ -1,5 +1,4 @@
 import datetime, random, sha
-
 from django import forms
 from django.contrib import messages, auth
 from django.contrib.auth.models import User
@@ -8,11 +7,12 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render_to_response, get_object_or_404
 from django.template import loader, RequestContext
 from django.utils.timezone import utc
-
+from django.conf import settings
 from swe.context import RequestGlobalContext
 from swe.forms import RegisterForm, LoginForm, SubmitManuscriptForm, ConfirmForm, ActivationRequestForm
 from swe.models import UserProfile, ManuscriptOrder, OriginalDocument
 from swe.messagecatalog import MessageCatalog
+
 
 def home(request):
     # If logged in, add MyManuscripts to Menu
@@ -20,22 +20,29 @@ def home(request):
     c = RequestGlobalContext(request, {})
     return HttpResponse(t.render(c))
 
+
 def service(request):
     t = loader.get_template('service.html')
     c = RequestGlobalContext(request, {})
     return HttpResponse(t.render(c))
+
 
 def prices(request):
     t = loader.get_template("prices.html")
     c = RequestGlobalContext(request, {})
     return HttpResponse(t.render(c))
 
+
 def about(request):
     t = loader.get_template('about.html')
     c = RequestGlobalContext(request, {})
     return HttpResponse(t.render(c))
 
+
 def login(request):
+    if settings.BLOCK_SERVICE:
+        return HttpResponseRedirect('/comebacksoon/')
+
     if request.user.is_authenticated():
         # They already have an account; don't let them register again
         messages.add_message(request,messages.INFO,'You are logged in.')
@@ -84,12 +91,16 @@ def login(request):
         return HttpResponse(t.render(c))
 
 def logout(request):
+
     # The form is just a link defined in the template. This should be by post only.
     if request.method == 'POST':
         auth.logout(request)
     return HttpResponseRedirect('/home/')
 
 def account(request):
+    if settings.BLOCK_SERVICE:
+        return HttpResponseRedirect('/comebacksoon/')
+
     if not request.user.is_authenticated():
         return HttpResponseRedirect('/login/')
     t = loader.get_template('todo.html')
@@ -97,6 +108,9 @@ def account(request):
     return HttpResponse(t.render(c))
 
 def order(request):
+    if settings.BLOCK_SERVICE:
+        return HttpResponseRedirect('/comebacksoon/')
+
     from swe.models import WordCountRange, Subject, ServiceType, Document
     if not request.user.is_authenticated():
         return HttpResponseRedirect('/register/')
@@ -160,17 +174,20 @@ def order(request):
         return HttpResponse(t.render(c)) 
 
 def create_activation_key(user):
-            # Build the activation key for their account
-            salt = sha.new(str(random.random())).hexdigest()[:5]
-            activation_key = sha.new(salt+user.email).hexdigest()
-            return activation_key
+    # Build the activation key for their account
+    salt = sha.new(str(random.random())).hexdigest()[:5]
+    activation_key = sha.new(salt+user.email).hexdigest()
+    return activation_key
 
 def get_activation_key_expiration():
-            key_expires = datetime.datetime.today() + datetime.timedelta(2)
-            return key_expires
+    key_expires = datetime.datetime.today() + datetime.timedelta(2)
+    return key_expires
 
 
 def register(request):
+    if settings.BLOCK_SERVICE:
+        return HttpResponseRedirect('/comebacksoon/')
+
     if request.user.is_authenticated():
         # They already have an account; don't let them register again
         messages.add_message(request,messages.INFO,'You already have an account. To register a separate account, please logout.')
@@ -228,6 +245,9 @@ def register(request):
         return HttpResponse(t.render(c))
 
 def confirm(request, activation_key=None):
+    if settings.BLOCK_SERVICE:
+        return HttpResponseRedirect('/comebacksoon/')
+
     if request.method=='POST':
         # POST
         form = ConfirmForm(request.POST)
@@ -273,6 +293,9 @@ def confirm(request, activation_key=None):
         return HttpResponse(t.render(c))
 
 def activationrequest(request):
+    if settings.BLOCK_SERVICE:
+        return HttpResponseRedirect('/comebacksoon/')
+
     if request.method=='POST':
         form = ActivationRequestForm(request.POST)
         if form.is_valid():
@@ -324,6 +347,6 @@ def contact(request):
     return HttpResponse(t.render(c))
 
 def block(request):
-    t = loader.get_template('comebacksoon.html')
+    t = loader.get_template('block.html')
     c = RequestGlobalContext(request,{})
     return HttpResponse(t.render(c))
