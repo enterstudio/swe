@@ -1,11 +1,19 @@
 # Django settings for swe project.
 import os
-import dj_database_url
 
-DEBUG = True
+RACK_ENV=os.environ['RACK_ENV']
+
+try:
+    BLOCK_SERVICE = (os.environ['BLOCK_SERVICE'].upper()=='TRUE')
+except KeyError:
+    BLOCK_SERVICE = False
+
+if not RACK_ENV=='production':
+    DEBUG = True
+else:
+    DEBUG = False
+
 TEMPLATE_DEBUG = DEBUG
-
-BLOCK_SERVICE = True
 
 ADMINS = (
     # ('Your Name', 'your_email@example.com'),
@@ -13,20 +21,22 @@ ADMINS = (
 
 MANAGERS = ADMINS
 
-DATABASES = {
-    'default': dj_database_url.config(),
-    }
-
-#DATABASES = {
-#    'default': {
-#        'ENGINE': 'django.db.backends.postgresql_psycopg2', # Add 'postgresql_psycopg2', 'mysql', 'sqlite3' or 'oracle'.
-#        'NAME': 'swe',                      # Or path to database file if using sqlite3.
-#        'USER': 'nhammond',                      # Not used with sqlite3.
-#        'PASSWORD': 'nderf',                  # Not used with sqlite3.
-#        'HOST': 'localhost',                      # Set to empty string for localhost. Not used with sqlite3.
-#        'PORT': '',                      # Set to empty string for default. Not used with sqlite3.
-#    }
-#}
+if RACK_ENV=='development':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql_psycopg2', # Add 'postgresql_psycopg2', 'mysql', 'sqlite3' or 'oracle'.
+            'NAME': 'swe',                      # Or path to database file if using sqlite3.
+            'USER': os.environ['PSQL_USER'],                      # Not used with sqlite3.
+            'PASSWORD': os.environ['PSQL_PASSWORD'],                  # Not used with sqlite3.
+            'HOST': 'localhost',                      # Set to empty string for localhost. Not used with sqlite3.
+            'PORT': '',                      # Set to empty string for default. Not used with sqlite3.
+            }
+        }
+else:
+    import dj_database_url
+    DATABASES = {
+        'default': dj_database_url.config(),
+        }
 
 # Local time zone for this installation. Choices can be found here:
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
