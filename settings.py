@@ -85,7 +85,7 @@ STATIC_ROOT = os.path.join(ROOT_DIR, 'staticfiles/')
 
 # URL prefix for static files.
 # Example: "http://media.lawrence.com/static/"
-STATIC_URL = '/static/'
+# STATIC_URL = '/static/'
 
 # Additional locations of static files
 STATICFILES_DIRS = (
@@ -102,6 +102,13 @@ STATICFILES_FINDERS = (
     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
 #    'django.contrib.staticfiles.finders.DefaultStorageFinder',
 )
+
+STATICFILES_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
+
+AWS_ACCESS_KEY_ID = os.environ['AWS_ACCESS_KEY_ID']
+AWS_SECRET_ACCESS_KEY = os.environ['AWS_SECRET_ACCESS_KEY']
+AWS_STORAGE_BUCKET_NAME = os.environ['S3_BUCKET_NAME']
+STATIC_URL = 'https://'+AWS_STORAGE_BUCKET_NAME+'.s3.amazonaws.com/'
 
 # Make this unique, and don't share it with anybody.
 SECRET_KEY = '9e$#^u)-7xkr8w0=qi**o*p&amp;pe!f*l#0st@bmul2invw*incc='
@@ -131,6 +138,7 @@ WSGI_APPLICATION = 'wsgi.application'
 TEMPLATE_DIRS = (
     os.path.join(ROOT_DIR, 'templates'),
     os.path.join(ROOT_DIR, 'templates', 'email'),
+    os.path.join(ROOT_DIR, 'templates', 'errors'),
 )
 
 INSTALLED_APPS = (
@@ -141,10 +149,13 @@ INSTALLED_APPS = (
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.admin',
+    'storages',
     # Uncomment the next line to enable admin documentation:
     # 'django.contrib.admindocs',
     'swe',
 )
+
+
 
 # A sample logging configuration. The only tangible logging
 # performed by this configuration is to send an email to
