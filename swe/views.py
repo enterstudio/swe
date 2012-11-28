@@ -90,41 +90,38 @@ def login(request):
         c = RequestGlobalContext(request, { 'form': form })
         return HttpResponse(t.render(c))
 
-def logout(request):
 
+def logout(request):
     # The form is just a link defined in the template. This should be by post only.
     if request.method == 'POST':
         auth.logout(request)
     return HttpResponseRedirect('/home/')
 
+
 def account(request):
     if settings.BLOCK_SERVICE:
         return HttpResponseRedirect('/comebacksoon/')
-
     if not request.user.is_authenticated():
         return HttpResponseRedirect('/login/')
     t = loader.get_template('todo.html')
     c = RequestGlobalContext(request, {'text': 'Account page'})
     return HttpResponse(t.render(c))
 
+
 def order(request):
     if settings.BLOCK_SERVICE:
         return HttpResponseRedirect('/comebacksoon/')
-
     from swe.models import WordCountRange, Subject, ServiceType, Document
     if not request.user.is_authenticated():
         return HttpResponseRedirect('/register/')
-    
     if request.method == 'POST':
         form = SubmitManuscriptForm(request.POST, request.FILES)
         if form.is_valid():
             new_data=form.cleaned_data;
-
             #submit manusript
             word_count_range=WordCountRange.objects.get(word_count_range_id=new_data[u'wordcount'])
             service_type=ServiceType.objects.get(service_type_id=new_data[u'servicetype'])
             subject=Subject.objects.get(subject_id=new_data[u'subject'])
-
             m = ManuscriptOrder(
                 title=new_data[u'title'],
                 word_count_range=word_count_range,
@@ -133,12 +130,9 @@ def order(request):
                 customer=request.user,
                 datetime_submitted=datetime.datetime.utcnow().replace(tzinfo=utc),
                 )
-
             days_until_due = service_type.hours_until_due/24
-
             m.datetime_due = datetime.datetime.utcnow().replace(tzinfo=utc) + datetime.timedelta(days_until_due)
             m.save()
-
             d = OriginalDocument(
                 manuscript_order = m,
                 manuscript_file=request.FILES[u'manuscriptfile'],
@@ -146,12 +140,9 @@ def order(request):
                 datetime_uploaded=datetime.datetime.utcnow().replace(tzinfo=utc),
                 )
             d.save()
-
             m.current_document_version = Document.objects.get(id=d.document_ptr_id)
             m.save()
-
             messages.add_message(request,messages.SUCCESS, 'Your manuscript was uploaded.')
-
             t = loader.get_template('todo.html')
             c = RequestGlobalContext(request, {'text': 'Go somewhere after file upload'})
             return HttpResponse(t.render(c))
@@ -164,7 +155,6 @@ def order(request):
                 'form': form
             })
             return HttpResponse(t.render(c))
-
     else:
         form = SubmitManuscriptForm()
         t = loader.get_template('submitmanuscript.html')
@@ -173,11 +163,13 @@ def order(request):
         })
         return HttpResponse(t.render(c)) 
 
+
 def create_activation_key(user):
     # Build the activation key for their account
     salt = sha.new(str(random.random())).hexdigest()[:5]
     activation_key = sha.new(salt+user.email).hexdigest()
     return activation_key
+
 
 def get_activation_key_expiration():
     key_expires = datetime.datetime.today() + datetime.timedelta(2)
@@ -187,29 +179,23 @@ def get_activation_key_expiration():
 def register(request):
     if settings.BLOCK_SERVICE:
         return HttpResponseRedirect('/comebacksoon/')
-
     if request.user.is_authenticated():
         # They already have an account; don't let them register again
         messages.add_message(request,messages.INFO,'You already have an account. To register a separate account, please logout.')
         return HttpResponseRedirect('/home/')
-
     if request.method == 'POST':
         form = RegisterForm(request.POST)
         if form.is_valid():
             new_data = form.cleaned_data;
-
             new_user = User.objects.create_user(username = new_data['email'],
                                                 email = new_data['email'],
                                                 password = new_data['password'])
             new_user.is_active = False
             new_user.first_name = new_data['firstname']
             new_user.last_name = new_data['lastname']
-
             new_user.save()
-
             activation_key = create_activation_key(new_user)
             key_expires = get_activation_key_expiration()
-
             # Create and save their profile
             new_profile = UserProfile(user=new_user,
                                       activation_key=activation_key,
@@ -217,14 +203,11 @@ def register(request):
                                       active_email=new_data['email'],
                                       active_email_confirmed=False,
                                       )
-
             # Send an email with the confirmation link
             email_subject = 'Your new Science Writing Experts account confirmation'
             email_body = "Hello %s,\n\nThank you for registering at Science Writing Experts.\n\nTo activate your account, please click this link within 48 hours:\n\nhttp://sciencewritingexperts.com/confirm/%s\n\nOr visit http://sciencewritingexperts.com/confirm and enter this activation key:\n\n%s\n\nSincerely,\nNathan Hammond\nDirector of Customer Satisfaction\n" % ( new_user.first_name, new_profile.activation_key, new_profile.activation_key)
-            send_mail(email_subject, email_body, 'accounts@sciencewritingexperts.com', [new_user.email])
-
+            send_mail(email_subject, email_body, 'support@sciencewritingexperts.com', [new_user.email], fail_silently=False)
             new_profile.save()
-
             messages.add_message(request,messages.SUCCESS,
                 'An activation key has been sent to your email address.')
             return HttpResponseRedirect('/confirm/')
@@ -244,10 +227,10 @@ def register(request):
             })
         return HttpResponse(t.render(c))
 
+
 def confirm(request, activation_key=None):
     if settings.BLOCK_SERVICE:
         return HttpResponseRedirect('/comebacksoon/')
-
     if request.method=='POST':
         # POST
         form = ConfirmForm(request.POST)
@@ -287,64 +270,62 @@ def confirm(request, activation_key=None):
             form = ConfirmForm(initial={'activation_key':activation_key})
         else:
             form = ConfirmForm()
-
         t = loader.get_template('confirm.html')
         c = RequestGlobalContext(request, {'form': form })
         return HttpResponse(t.render(c))
 
+
 def activationrequest(request):
     if settings.BLOCK_SERVICE:
         return HttpResponseRedirect('/comebacksoon/')
-
     if request.method=='POST':
         form = ActivationRequestForm(request.POST)
         if form.is_valid():
-
             user = User.objects.get(username=form.cleaned_data[u'email'])
             activation_key = create_activation_key(user)
             key_expires = get_activation_key_expiration()
-
             profile = UserProfile.objects.get(user=user)
             profile.activation_key = activation_key
             profile.key_expires = key_expires
-
             # Send an email with the confirmation link
             email_subject = 'Your new Science Writing Experts account confirmation'
             email_body = "Hello %s,\n\nThank you for registering at Science Writing Experts.\n\nTo activate your account, please click this link within 48 hours:\n\nhttp://sciencewritingexperts.com/confirm/%s\n\nOr visit http://sciencewritingexperts.com/confirm and enter this activation key:\n\n%s\n\nSincerely,\nNathan Hammond\nDirector of Customer Satisfaction\n" % ( user.first_name, profile.activation_key, profile.activation_key)
-            send_mail(email_subject, email_body, 'accounts@sciencewritingexperts.com', [user.email])
-
+            send_mail(email_subject, email_body, 'accounts@sciencewritingexperts.com', [user.email], fail_silently=False)
             profile.save()
-
             messages.add_message(request,messages.SUCCESS,'A new activation key has been sent to your email address.')
             return HttpResponseRedirect('/confirm/')
         else:
             messages.add_message(request,messages.ERROR,MessageCatalog.form_invalid)
     else:
         form = ActivationRequestForm()
-
     t = loader.get_template('activation-request.html')
     c = RequestGlobalContext(request, { 'form': form })
     return HttpResponse(t.render(c))
+
 
 def privacy(request):
     t = loader.get_template('privacy.html')
     c = RequestGlobalContext(request, {})
     return HttpResponse(t.render(c))
 
+
 def terms(request):
     t = loader.get_template('terms.html')
     c = RequestGlobalContext(request, {})
     return HttpResponse(t.render(c))
+
 
 def careers(request):
     t = loader.get_template('careers.html')
     c = RequestGlobalContext(request,{})
     return HttpResponse(t.render(c))
 
+
 def contact(request):
     t = loader.get_template('contact.html')
     c = RequestGlobalContext(request,{})
     return HttpResponse(t.render(c))
+
 
 def block(request):
     t = loader.get_template('block.html')

@@ -1,16 +1,16 @@
 # Django settings for swe project.
 import os
 
-RACK_ENV=os.environ['RACK_ENV']
+RACK_ENV=os.environ['RACK_ENV'] #development, staging, production
 
-BLOCK_SERVICE = False
+BLOCK_SERVICE = False #unless True in environment
 try:
     b = (os.environ['BLOCK_SERVICE'].upper()=='TRUE')
     BLOCK_SERVICE = b
 except KeyError:
     pass
 
-DEBUG = False
+DEBUG = False #unless True in environment
 try:
     d = (os.environ['DEBUG'].upper()=='TRUE')
     DEBUG = d
@@ -82,6 +82,12 @@ else:
     AWS_STORAGE_BUCKET_NAME = os.environ['S3_BUCKET_NAME']
     STATIC_URL = 'https://'+AWS_STORAGE_BUCKET_NAME+'.s3.amazonaws.com/'
     STATICFILES_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
+
+EMAIL_HOST = 'smtp.sendgrid.net'
+EMAIL_HOST_USER = os.environ['SENDGRID_USERNAME']
+EMAIL_HOST_PASSWORD = os.environ['SENDGRID_PASSWORD']
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
 
 # Make this unique, and don't share it with anybody.
 SECRET_KEY = '9e$#^u)-7xkr8w0=qi**o*p&amp;pe!f*l#0st@bmul2invw*incc='
