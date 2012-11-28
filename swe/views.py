@@ -336,7 +336,6 @@ def block(request):
     return HttpResponse(t.render(c))
 
 
-@csrf_exempt
 def paypal(request):
     paypal_dict = {
         "business": settings.PAYPAL_RECEIVER_EMAIL,
@@ -354,11 +353,13 @@ def paypal(request):
     return render_to_response("paypal.html", context)
 
 
+@csrf_exempt
 def paymentcanceled(request):
     messages.add_message(request, messages.ERROR, 'Payment failed.')
     HttpResponseRedirect('/home/')
 
 
+@csrf_exempt
 def paymentreceived(request):
     messages.add_message(request, messages.SUCCESS, 'Payment received.')
     HttpResponseRedirect('/home/')
