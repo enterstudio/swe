@@ -346,10 +346,11 @@ def paypal(request):
         "return_url": "%s%s" % (settings.ROOT_URL, 'paymentreceived/'),
         "cancel_return": "%s%s" % (settings.ROOT_URL, 'paymentcanceled/'),
         }
-    # Create the instance.
     form = PayPalPaymentsForm(initial=paypal_dict)
-    context = {"form": form.sandbox()} #TODO change to form.render to send to real PayPal
-    #context = {"form": form.render()}
+    if settings.RACK_ENV=='production':
+        context = {"form": form.render()}
+    else:
+        context = {"form": form.sandbox()}
     return render_to_response("paypal.html", context)
 
 
