@@ -356,10 +356,10 @@ def paypal(request):
 @csrf_exempt
 def paymentcanceled(request):
     messages.add_message(request, messages.ERROR, 'Payment failed.')
-    HttpResponseRedirect('/home/')
+    return HttpResponseRedirect('/home/')
 
 
 @csrf_exempt
 def paymentreceived(request):
     messages.add_message(request, messages.SUCCESS, 'Payment received.')
-    HttpResponseRedirect('/home/')
+    return HttpResponseRedirect('/home/')
