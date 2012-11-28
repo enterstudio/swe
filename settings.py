@@ -50,7 +50,7 @@ USE_L10N = True
 USE_TZ = True
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_URL = 'http://127.0.0.1:8000'
+ROOT_URL = os.environ['ROOT_URL']
 
 MEDIA_ROOT = os.path.join(ROOT_DIR,'media/')
 MEDIA_URL = '/media/'
@@ -88,6 +88,8 @@ EMAIL_HOST_USER = os.environ['SENDGRID_USERNAME']
 EMAIL_HOST_PASSWORD = os.environ['SENDGRID_PASSWORD']
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
+
+PAYPAL_RECEIVER_EMAIL = os.environ['PAYPAL_RECEIVER_EMAIL']
 
 # Make this unique, and don't share it with anybody.
 SECRET_KEY = '9e$#^u)-7xkr8w0=qi**o*p&amp;pe!f*l#0st@bmul2invw*incc='
@@ -129,6 +131,7 @@ INSTALLED_APPS = (
     'django.contrib.staticfiles',
     'django.contrib.admin',
     'storages',
+    'paypal.standard.ipn',
     # Uncomment the next line to enable admin documentation:
     # 'django.contrib.admindocs',
     'swe',

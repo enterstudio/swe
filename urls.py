@@ -28,6 +28,13 @@ urlpatterns = patterns('swe.views',
     url(r'^contact[/]?$', 'contact'),
     url(r'^careers[/]?$', 'careers'),
     url(r'^comebacksoon[/]?$', 'block'),
+    url(r'^paypal/$', 'paypal', name='paypal'),
+    url(r'^paymentreceived/$', 'paymentreceived'),
+    url(r'^paymentcanceled/$', 'paymentcanceled'),
+)
+
+urlpatterns += patterns('',
+    (r'^fj3i28/j23ifo2/a8v892/fjuw37822jir/$', include('paypal.standard.ipn.urls')),
 )
 
 urlpatterns += patterns('swe.editorviews',
@@ -40,7 +47,3 @@ urlpatterns += patterns('',
     )
 
 urlpatterns += staticfiles_urlpatterns()
-
-#urlpatterns += patterns('',
-#    url(r'^static/(?P.*)$', 'django.views.static.serve', {'document_root': settings.STATIC_ROOT, 'show_indexes': False,}),
-#    )

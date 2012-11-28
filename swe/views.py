@@ -1,13 +1,15 @@
 import datetime, random, sha
 from django import forms
+from django.conf import settings
 from django.contrib import messages, auth
 from django.contrib.auth.models import User
 from django.core.mail import send_mail
+from django.core.urlresolvers import reverse
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render_to_response, get_object_or_404
 from django.template import loader, RequestContext
 from django.utils.timezone import utc
-from django.conf import settings
+from paypal.standard.forms import PayPalPaymentsForm
 from swe.context import RequestGlobalContext
 from swe.forms import RegisterForm, LoginForm, SubmitManuscriptForm, ConfirmForm, ActivationRequestForm
 from swe.models import UserProfile, ManuscriptOrder, OriginalDocument
@@ -331,3 +333,30 @@ def block(request):
     t = loader.get_template('block.html')
     c = RequestGlobalContext(request,{})
     return HttpResponse(t.render(c))
+
+
+def paypal(request):
+    paypal_dict = {
+        "business": settings.PAYPAL_RECEIVER_EMAIL,
+        "amount": "1.00",
+        "item_name": "name of the item",
+        "invoice": "unique-invoice-id",
+        "notify_url": "%s%s" % (settings.ROOT_URL, reverse('paypal-ipn')),
+        "return_url": "%s%s" % (settings.ROOT_URL, 'paymentreceived/'),
+        "cancel_return": "%s%s" % (settings.ROOT_URL, 'paymentcanceled/'),
+        }
+    # Create the instance.
+    form = PayPalPaymentsForm(initial=paypal_dict)
+    context = {"form": form.sandbox()} #TODO change to form.render to send to real PayPal
+    #context = {"form": form.render()}
+    return render_to_response("paypal.html", context)
+
+
+def paymentcanceled(request):
+    messages.add_message(request, messages.ERROR, 'Payment failed.')
+    HttpResponseRedirect('/home/')
+
+
+def paymentreceived(request):
+    messages.add_message(request, messages.SUCCESS, 'Payment received.')
+    HttpResponseRedirect('/home/')
