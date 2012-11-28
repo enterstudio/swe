@@ -55,7 +55,6 @@ ROOT_URL = 'http://127.0.0.1:8000'
 MEDIA_ROOT = os.path.join(ROOT_DIR,'media/')
 MEDIA_URL = '/media/'
 
-STATIC_ROOT = os.path.join(ROOT_DIR, 'staticfiles/')
 STATICFILES_DIRS = (
     os.path.join(ROOT_DIR, 'static/'),
 )
@@ -66,16 +65,23 @@ STATICFILES_FINDERS = (
 #    'django.contrib.staticfiles.finders.DefaultStorageFinder',
 )
 
-if RACK_ENV=='development':
-    STATIC_URL = '/static/'
-else:
-    STATICFILES_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
+LOCAL_STORAGE = False
+try:
+    l = (os.environ['LOCAL_STORAGE'].upper()=='TRUE')
+    LOCAL_STORAGE = l
+except KeyError:
+    pass
 
+
+if LOCAL_STORAGE:
+    STATIC_URL = '/static/'
+    STATIC_ROOT = os.path.join(ROOT_DIR, 'staticfiles/')
+else:
     AWS_ACCESS_KEY_ID = os.environ['AWS_ACCESS_KEY_ID']
     AWS_SECRET_ACCESS_KEY = os.environ['AWS_SECRET_ACCESS_KEY']
     AWS_STORAGE_BUCKET_NAME = os.environ['S3_BUCKET_NAME']
     STATIC_URL = 'https://'+AWS_STORAGE_BUCKET_NAME+'.s3.amazonaws.com/'
-
+    STATICFILES_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
 
 # Make this unique, and don't share it with anybody.
 SECRET_KEY = '9e$#^u)-7xkr8w0=qi**o*p&amp;pe!f*l#0st@bmul2invw*incc='

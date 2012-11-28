@@ -69,6 +69,7 @@ display: inline;
 }
 .header-left{
 text-align: left;
+white-space: nowrap;
 }
 .logo img{
 margin: 38px 0px 0px 20px;
@@ -83,6 +84,7 @@ top: 41px;
 font-size: 27px;
 color: #333;
 font-family: "Times New Roman", Times, serif;
+white-space: nowrap;
 }
 .name .initial
 {
