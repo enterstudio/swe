@@ -10,7 +10,7 @@ from swe.views import home
 admin.autodiscover()
 
 urlpatterns = patterns('swe.views',
-    url(r'^/$', 'home'),
+    url(r'^$', 'home'),
     url(r'^home/$', 'home'),
     url(r'^service/$', 'service'),
     url(r'^prices/$', 'prices'),
