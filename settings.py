@@ -132,6 +132,7 @@ INSTALLED_APPS = (
     'django.contrib.admin',
     'storages',
     'paypal.standard.ipn',
+    'sendgrid',
     # Uncomment the next line to enable admin documentation:
     # 'django.contrib.admindocs',
     'swe',
