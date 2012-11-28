@@ -335,6 +335,7 @@ def block(request):
     return HttpResponse(t.render(c))
 
 
+@csrf_exempt
 def paypal(request):
     paypal_dict = {
         "business": settings.PAYPAL_RECEIVER_EMAIL,
