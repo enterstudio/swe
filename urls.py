@@ -43,7 +43,7 @@ urlpatterns += patterns('swe.editorviews',
     )
 
 urlpatterns += patterns('',
-    url(r'^admin/', include(admin.site.urls)),
+    url(r'^044096020admin/', include(admin.site.urls)),
     )
 
 urlpatterns += staticfiles_urlpatterns()

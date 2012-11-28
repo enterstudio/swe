@@ -20,7 +20,7 @@ except KeyError:
 TEMPLATE_DEBUG = DEBUG
 
 ADMINS = (
-    # ('Your Name', 'your_email@example.com'),
+    ('Nathan Hammond', 'support@sciencewritingexpets.com'),
 )
 
 MANAGERS = ADMINS
@@ -50,7 +50,7 @@ USE_L10N = True
 USE_TZ = True
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_URL = os.environ['ROOT_URL']+'/'
+ROOT_URL = os.environ['ROOT_URL']
 
 MEDIA_ROOT = os.path.join(ROOT_DIR,'media/')
 MEDIA_URL = '/media/'
