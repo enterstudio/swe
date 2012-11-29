@@ -1,7 +1,12 @@
-from django.db import models
 import datetime
-from django.utils import timezone
+import os
+from time import strftime, gmtime
+import uuid
 from django.contrib.auth.models import User
+from django.db import models
+from django.utils import timezone
+
+
 class UserProfile(models.Model):
     user = models.OneToOneField(User)
     activation_key = models.CharField(max_length=40)
@@ -11,8 +16,7 @@ class UserProfile(models.Model):
     def __unicode__(self):
         return self.user.username
 
-import uuid, os
-from time import strftime, gmtime
+
 def get_file_path(instance, oldfilename):
     ext = oldfilename.split('.')[-1]
     shortname = '.'.join(oldfilename.split('.')[0:-1])
@@ -20,12 +24,14 @@ def get_file_path(instance, oldfilename):
     path = strftime('%Y/%m/%d',gmtime())
     return os.path.join('manuscripts', path, newfilename)
 
+
 class FileType(models.Model):
     file_type_id = models.IntegerField()
     display_text = models.CharField(max_length=40)
     file_suffix = models.CharField(max_length=10)
     def __unicode__(self):
         return self.display_text
+
 
 class Document(models.Model):
     manuscript_file = models.FileField(upload_to=get_file_path)
@@ -36,13 +42,14 @@ class Document(models.Model):
     def __unicode__(self):
         return self.original_name
 
+
 class ServiceType(models.Model):
     service_type_id = models.IntegerField()
     display_text = models.CharField(max_length=40)
     hours_until_due = models.IntegerField()
-    enabled = models.BooleanField()
     def __unicode__(self):
         return self.display_text
+
 
 class Subject(models.Model):
     subject_id = models.IntegerField()
@@ -51,11 +58,11 @@ class Subject(models.Model):
     def __unicode__(self):
         return self.display_text
 
+
 class WordCountRange(models.Model):
     word_count_range_id = models.IntegerField()
     max_words = models.IntegerField(null = True) #null signifies inf
     min_words = models.IntegerField(null = True) #null signifies 0
-    enabled = models.BooleanField()
     def display_text(self):
         if self.min_words is None:
             if self.max_words is None:
@@ -71,15 +78,42 @@ class WordCountRange(models.Model):
     def __unicode__(self):
         return self.display_text()
 
+
+class PriceSet(models.Model):
+    is_active = models.BooleanField()
+    date_activated = models.DateTimeField()
+
+
+class PricePoint(models.Model):
+    priceset = models.ForeignKey(PriceSet)
+    servicetype = models.ForeignKey(ServiceType)
+    wordcountrange = models.ForeignKey(WordCountRange)
+    dollars = models.DecimalField(max_digits=7, decimal_places=2)
+    dollars_per_word = models.DecimalField(max_digits=7, decimal_places=3)
+    is_price_per_word = models.BooleanField()
+    is_enabled = models.BooleanField()
+
+
+class Coupon(models.Model):
+    display_text = models.CharField(max_length=200)
+    code = models.CharField(max_length=20)
+    dollars_off = models.DecimalField(null=True, max_digits=7, decimal_places=2)
+    is_by_percent = models.BooleanField()
+    percent_off = models.IntegerField(null=True)
+    expiration_date = models.DateTimeField()
+    is_limited_to_select_users = models.BooleanField()
+    enabled_users = models.ManyToManyField(User)
+
+
 class ManuscriptOrder(models.Model):
     title = models.CharField(max_length=200)
     # OneToOne defined in OriginalDocument
     # OneToMany defined in ManuscriptEdit
     current_document_version = models.ForeignKey(Document,null=True)
-    service_type = models.CharField(max_length=40)
+    service_type = models.CharField(max_length=60)
     subject = models.ForeignKey(Subject)
     word_count_range = models.ForeignKey(WordCountRange)
-    word_count_exact = models.IntegerField(null=True,blank=True)
+    word_count_exact = models.IntegerField(null=True, blank=True)
     customer = models.ForeignKey(User)
     datetime_submitted = models.DateTimeField()
     datetime_due = models.DateTimeField()
@@ -91,10 +125,12 @@ class ManuscriptOrder(models.Model):
     def __unicode__(self):
         return self.title
 
+
 class OriginalDocument(Document):
     manuscript_order = models.OneToOneField(ManuscriptOrder)
     def __unicode__(self):
         return self.manuscript_order.title
+
 
 class EditedDocument(Document):
     manuscript_order = models.ForeignKey(ManuscriptOrder)
@@ -102,6 +138,7 @@ class EditedDocument(Document):
     submitted_by = models.ForeignKey(User)
     def __unicode__(self):
         return self.manuscript_order.title+' Original'
+
 
 class ManuscriptEdit(models.Model):
     manuscript_order = models.ForeignKey(ManuscriptOrder)
