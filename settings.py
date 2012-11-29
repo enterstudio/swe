@@ -91,6 +91,9 @@ EMAIL_USE_TLS = True
 
 PAYPAL_RECEIVER_EMAIL = os.environ['PAYPAL_RECEIVER_EMAIL']
 
+CUSTOMER_SERVICE_NAME = "Nathan Hammond"
+CUSTOMER_SERVICE_TITLE = "Director of Customer Happiness"
+
 # Make this unique, and don't share it with anybody.
 SECRET_KEY = '9e$#^u)-7xkr8w0=qi**o*p&amp;pe!f*l#0st@bmul2invw*incc='
 

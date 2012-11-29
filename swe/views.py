@@ -7,7 +7,7 @@ from django.core.mail import send_mail
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render_to_response, get_object_or_404
-from django.template import loader, RequestContext
+from django.template import loader, Context
 from django.utils.timezone import utc
 from django.views.decorators.csrf import csrf_exempt
 from paypal.standard.forms import PayPalPaymentsForm
@@ -208,7 +208,13 @@ def register(request):
                                       )
             # Send an email with the confirmation link
             email_subject = 'Your new Science Writing Experts account confirmation'
-            email_body = "Hello %s,\n\nThank you for registering at Science Writing Experts.\n\nTo activate your account, please click this link within 48 hours:\n\nhttp://sciencewritingexperts.com/confirm/%s\n\nOr visit http://sciencewritingexperts.com/confirm and enter this activation key:\n\n%s\n\nSincerely,\nNathan Hammond\nDirector of Customer Satisfaction\n" % ( new_user.first_name, new_profile.activation_key, new_profile.activation_key)
+            t = loader.get_template('activationrequest.txt')
+            c = Context({'activation_key': new_profile.activation_key,
+                         'customer_service_name': settings.CUSTOMER_SERVICE_NAME,
+                         'customer_service_title': settings.CUSTOMER_SERVICE_TITLE,
+                         'root_url': settings.ROOT_URL,
+                         })
+            email_body = t.render(c)
             send_mail(email_subject, email_body, 'support@sciencewritingexperts.com', [new_user.email], fail_silently=False)
             new_profile.save()
             messages.add_message(request,messages.SUCCESS,
@@ -292,8 +298,14 @@ def activationrequest(request):
             profile.key_expires = key_expires
             # Send an email with the confirmation link
             email_subject = 'Your new Science Writing Experts account confirmation'
-            email_body = "Hello %s,\n\nThank you for registering at Science Writing Experts.\n\nTo activate your account, please click this link within 48 hours:\n\nhttp://sciencewritingexperts.com/confirm/%s\n\nOr visit http://sciencewritingexperts.com/confirm and enter this activation key:\n\n%s\n\nSincerely,\nNathan Hammond\nDirector of Customer Satisfaction\n" % ( user.first_name, profile.activation_key, profile.activation_key)
-            send_mail(email_subject, email_body, 'accounts@sciencewritingexperts.com', [user.email], fail_silently=False)
+            t = loader.get_template('activationrequest.txt')
+            c = Context({'activation_key': profile.activation_key,
+                         'customer_service_name': settings.CUSTOMER_SERVICE_NAME,
+                         'customer_service_title': settings.CUSTOMER_SERVICE_TITLE,
+                         'root_url': settings.ROOT_URL,
+                         })
+            email_body = t.render(c)
+            send_mail(email_subject, email_body, 'support@sciencewritingexperts.com', [user.email], fail_silently=False)
             profile.save()
             messages.add_message(request,messages.SUCCESS,'A new activation key has been sent to your email address.')
             return HttpResponseRedirect('/confirm/')
@@ -301,7 +313,7 @@ def activationrequest(request):
             messages.add_message(request,messages.ERROR,MessageCatalog.form_invalid)
     else:
         form = ActivationRequestForm()
-    t = loader.get_template('activation-request.html')
+    t = loader.get_template('activationrequest.html')
     c = RequestGlobalContext(request, { 'form': form })
     return HttpResponse(t.render(c))
 
