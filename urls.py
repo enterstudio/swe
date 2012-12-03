@@ -5,7 +5,8 @@ from django.contrib import admin
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.conf import settings
 import django
-from swe.views import home
+from swe.forms import SubmitManuscriptForm1, SubmitManuscriptForm2
+from swe.views import OrderWizard
 
 admin.autodiscover()
 
@@ -22,7 +23,7 @@ urlpatterns = patterns('swe.views',
     url(r'^login/$', 'login'),
     url(r'^logout/$', 'logout'),
     url(r'^account/$', 'account'),
-    url(r'^order/$', 'order'),
+#    url(r'^order/$', 'order_wizard'),
     url(r'^privacy/$', 'privacy'),
     url(r'^terms/$', 'terms'),
     url(r'^contact/$', 'contact'),
@@ -31,6 +32,10 @@ urlpatterns = patterns('swe.views',
     url(r'^paypal/$', 'paypal', name='paypal'),
     url(r'^paymentreceived/$', 'paymentreceived'),
     url(r'^paymentcanceled/$', 'paymentcanceled'),
+)
+
+urlpatterns += patterns('',
+    url(r'^order/$', 'swe.views.orderview')
 )
 
 urlpatterns += patterns('',

@@ -1,5 +1,7 @@
 from django import forms
 from django.contrib.auth.models import User
+from django.utils.safestring import mark_safe
+from swe.models import SubjectList, Subject, ServiceList, ServiceType, WordCountRange
  
 class RegisterForm(forms.Form):
     firstname = forms.CharField(label='First Name',
@@ -67,25 +69,22 @@ class ActivationRequestForm(forms.Form):
         return email
 
 
-class SubmitManuscriptForm(forms.Form):    
-    from swe.models import Subject, ServiceType, WordCountRange
+class SubmitManuscriptForm1(forms.Form):
     title = forms.CharField(label='Title (choose any name that helps you remember)', max_length=50, required=False)
-    manuscriptfile = forms.FileField(label='Select your manuscript file')
-    wordcount = forms.IntegerField(label='Number of words') 
-    enabledwordcountranges = WordCountRange.objects.filter(enabled=True)
-    wordcountrangelist = []
-    for wordcountrangeitem in enabledwordcountranges:
-        wordcountrangelist.append((wordcountrangeitem.word_count_range_id,wordcountrangeitem.display_text()))
-    wordcount = forms.ChoiceField(label='Word count (do not include references)', choices=wordcountrangelist, required=False, initial=3)
 
-    enabledsubjects = Subject.objects.filter(enabled=True)
-    subjectlist = []
-    for subjectitem in enabledsubjects:
-        subjectlist.append((subjectitem.subject_id,subjectitem.display_text))
-    subject = forms.ChoiceField(label='Subject area', choices=subjectlist, required=False)
+    subjectlist = SubjectList.objects.get(is_active=True)
+    subject = forms.ChoiceField(label='Field of study', choices=subjectlist.get_subject_choicelist(), required=False)
 
-    enabledservicetypes=ServiceType.objects.filter(enabled=True)
-    servicelist=[]
-    for servicetype in enabledservicetypes:
-        servicelist.append((servicetype.service_type_id,servicetype.display_text))
-    servicetype = forms.ChoiceField(label='Select a service type',choices=servicelist)
+    servicelist = ServiceList.objects.get(is_active=True)
+    wordcount = forms.ModelChoiceField(
+        label='Word count (do not include references)',
+        queryset=servicelist.wordcountrange_set,
+        empty_label=None,
+        )
+
+#    manuscriptfile = forms.FileField(label='Select your manuscript file')
+
+class SubmitManuscriptForm2(forms.Form):
+    temp_place_holder = forms.CharField(label='How do you feel about the color orange?', max_length=50, required=False)
+
+

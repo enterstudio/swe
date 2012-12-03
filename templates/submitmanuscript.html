@@ -3,6 +3,7 @@
 <h3>Submit a manuscript</h3>
 <form action="/order/" method="post" enctype="multipart/form-data">{% csrf_token %}
 {{ form.as_p }}
+<br/>
 <input type="submit" value="Continue" class="btn-large btn-inverse" />
 </form>
 {% endblock %}

@@ -1,8 +1,13 @@
-import datetime, random, sha
+import datetime
+import os
+import random
+import sha
 from django import forms
 from django.conf import settings
 from django.contrib import messages, auth
 from django.contrib.auth.models import User
+from django.contrib.formtools.wizard.views import SessionWizardView
+from django.core.files.storage import FileSystemStorage
 from django.core.mail import send_mail
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse, HttpResponseRedirect
@@ -12,7 +17,7 @@ from django.utils.timezone import utc
 from django.views.decorators.csrf import csrf_exempt
 from paypal.standard.forms import PayPalPaymentsForm
 from swe.context import RequestGlobalContext
-from swe.forms import RegisterForm, LoginForm, SubmitManuscriptForm, ConfirmForm, ActivationRequestForm
+from swe import forms
 from swe.models import UserProfile, ManuscriptOrder, OriginalDocument
 from swe.messagecatalog import MessageCatalog
 
@@ -52,7 +57,7 @@ def login(request):
         return HttpResponseRedirect('/order/')
 
     if request.method == 'POST':
-        form = LoginForm(request.POST)
+        form = forms.LoginForm(request.POST)
         if form.is_valid():
             username = form.cleaned_data['email']
             password = form.cleaned_data['password']
@@ -88,7 +93,7 @@ def login(request):
             return HttpResponse(t.render(c))
     else:
         # get unbound form
-        form = LoginForm()
+        form = forms.LoginForm()
         t = loader.get_template('login.html')
         c = RequestGlobalContext(request, { 'form': form })
         return HttpResponse(t.render(c))
@@ -118,13 +123,13 @@ def order(request):
     if not request.user.is_authenticated():
         return HttpResponseRedirect('/register/')
     if request.method == 'POST':
-        form = SubmitManuscriptForm(request.POST, request.FILES)
+        form = forms.SubmitManuscriptForm1(request.POST, request.FILES)
         if form.is_valid():
             new_data=form.cleaned_data;
             #submit manusript
-            word_count_range=WordCountRange.objects.get(word_count_range_id=new_data[u'wordcount'])
-            service_type=ServiceType.objects.get(service_type_id=new_data[u'servicetype'])
-            subject=Subject.objects.get(subject_id=new_data[u'subject'])
+            word_count_range=new_data[u'wordcount']
+            service_type=new_data[u'servicetype']
+            subject=new_data[u'subject']
             m = ManuscriptOrder(
                 title=new_data[u'title'],
                 word_count_range=word_count_range,
@@ -152,19 +157,64 @@ def order(request):
         else:
             #form invalid
             messages.add_message(request,messages.ERROR,MessageCatalog.form_invalid)
-            form = SubmitManuscriptForm()
+            form = forms.SubmitManuscriptForm1()
             t = loader.get_template('submitmanuscript.html')
             c = RequestGlobalContext(request, {
                 'form': form
             })
             return HttpResponse(t.render(c))
     else:
-        form = SubmitManuscriptForm()
+        form = forms.SubmitManuscriptForm1()
         t = loader.get_template('submitmanuscript.html')
         c = RequestGlobalContext(request, {
             'form': form,
         })
         return HttpResponse(t.render(c)) 
+
+
+class OrderWizard(SessionWizardView):
+    file_storage = FileSystemStorage(location=os.path.join(settings.MEDIA_ROOT, 'manuscripts'))
+
+    FORMS = [(u'form1', forms.SubmitManuscriptForm1), 
+             (u'form2', forms.SubmitManuscriptForm2),
+             ]
+ 
+    TEMPLATES = {u'form1': "order/form1.html",
+                 u'form2': "order/form2.html"}
+
+    def done(self, form_list, **kwargs):
+        t = loader.get_template('todo.html')
+        c = RequestGlobalContext(request, {'text': 'Form Wizard'})
+        return HttpResponse(t.render(c))
+
+    def render(self, form=None, **kwargs):
+        form = form or self.get_form()
+        context = RequestGlobalContext(self.request, self.get_context_data(form=form, **kwargs))
+        return self.render_to_response(context)
+
+#    def get_form(self, step=None, data=None, files=None):
+#        import pdb; pdb.set_trace()
+#        if step:
+#            step_files = self.storage.get_step_files(step)
+#        else:
+#            step_files = self.storage.current_step_files
+            
+#        if step_files and files:
+#            for key, value in step_files.items():
+#                if files.has_key(key) and files[key] is not None:
+#                    step_files[key] = files[key]
+#        elif files:
+#            step_files = files
+
+#        return super(OrderWizard, self).get_form(step, data, step_files)
+
+    def get_template_names(self):
+        return [self.TEMPLATES[self.steps.current]]
+
+
+def orderview(request):
+    wizard = OrderWizard.as_view(OrderWizard.FORMS)
+    return wizard(request=request)
 
 
 def create_activation_key(user):
@@ -187,7 +237,7 @@ def register(request):
         messages.add_message(request,messages.INFO,'You already have an account. To register a separate account, please logout.')
         return HttpResponseRedirect('/home/')
     if request.method == 'POST':
-        form = RegisterForm(request.POST)
+        form = forms.RegisterForm(request.POST)
         if form.is_valid():
             new_data = form.cleaned_data;
             new_user = User.objects.create_user(username = new_data['email'],
@@ -228,7 +278,7 @@ def register(request):
             return HttpResponse(t.render(c))
     else:
         #GET
-        form = RegisterForm()
+        form = forms.RegisterForm()
         t = loader.get_template('register.html')
         c = RequestGlobalContext(request,
             {
@@ -242,7 +292,7 @@ def confirm(request, activation_key=None):
         return HttpResponseRedirect('/comebacksoon/')
     if request.method=='POST':
         # POST
-        form = ConfirmForm(request.POST)
+        form = forms.ConfirmForm(request.POST)
         if form.is_valid():
             activation_key = form.cleaned_data['activation_key']
             try:
@@ -276,9 +326,9 @@ def confirm(request, activation_key=None):
     else:
         # GET
         if activation_key is not None:
-            form = ConfirmForm(initial={'activation_key':activation_key})
+            form = forms.ConfirmForm(initial={'activation_key':activation_key})
         else:
-            form = ConfirmForm()
+            form = forms.ConfirmForm()
         t = loader.get_template('confirm.html')
         c = RequestGlobalContext(request, {'form': form })
         return HttpResponse(t.render(c))
@@ -288,7 +338,7 @@ def activationrequest(request):
     if settings.BLOCK_SERVICE:
         return HttpResponseRedirect('/comebacksoon/')
     if request.method=='POST':
-        form = ActivationRequestForm(request.POST)
+        form = forms.ActivationRequestForm(request.POST)
         if form.is_valid():
             user = User.objects.get(username=form.cleaned_data[u'email'])
             activation_key = create_activation_key(user)
@@ -312,7 +362,7 @@ def activationrequest(request):
         else:
             messages.add_message(request,messages.ERROR,MessageCatalog.form_invalid)
     else:
-        form = ActivationRequestForm()
+        form = forms.ActivationRequestForm()
     t = loader.get_template('activationrequest.html')
     c = RequestGlobalContext(request, { 'form': form })
     return HttpResponse(t.render(c))
@@ -358,7 +408,7 @@ def paypal(request):
         "return_url": "%s%s" % (settings.ROOT_URL, 'paymentreceived/'),
         "cancel_return": "%s%s" % (settings.ROOT_URL, 'paymentcanceled/'),
         }
-    form = PayPalPaymentsForm(initial=paypal_dict)
+    form = forms.PayPalPaymentsForm(initial=paypal_dict)
     if settings.RACK_ENV=='production':
         context = {"form": form.render()}
     else:

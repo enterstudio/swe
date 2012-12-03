@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime
 import os
 from time import strftime, gmtime
 import uuid
@@ -43,32 +43,58 @@ class Document(models.Model):
         return self.original_name
 
 
-class ServiceType(models.Model):
-    service_type_id = models.IntegerField()
-    display_text = models.CharField(max_length=40)
-    hours_until_due = models.IntegerField()
+class SubjectList(models.Model):
+    is_active = models.BooleanField()
+    date_activated = models.DateTimeField(null=True)
+    def get_subject_choicelist(self):
+        categories = self.subjectcategory_set.all().order_by('display_order')
+        choicelist = []
+        for category in categories:
+            choicegroup = []
+            subjects = category.subject_set.all().order_by('display_order')
+            for subject in subjects:
+                if subject.is_enabled:
+                    choicegroup.append((subject.pk,subject.display_text))
+            choicelist.append((category.display_text.upper(), choicegroup))
+        return choicelist
+    def __unicode__(self):
+        return datetime.strftime(self.date_activated, "%Y-%m-%d %H:%M:%S")
+
+
+class SubjectCategory(models.Model):
+    subjectset = models.ForeignKey(SubjectList)
+    display_text=models.CharField(max_length=40)
+    display_order = models.IntegerField()
     def __unicode__(self):
         return self.display_text
 
 
 class Subject(models.Model):
-    subject_id = models.IntegerField()
-    display_text=models.CharField(max_length=40)
-    enabled=models.BooleanField()
+    subjectcategory = models.ForeignKey(SubjectCategory)
+    display_text = models.CharField(max_length=40)
+    display_order = models.IntegerField()
+    is_enabled=models.BooleanField()
     def __unicode__(self):
         return self.display_text
 
 
+class ServiceList(models.Model):
+    is_active = models.BooleanField()
+    date_activated = models.DateTimeField(null=True)
+    def __unicode__(self):
+        return datetime.strftime(self.date_activated, "%Y-%m-%d %H:%M:%S")
+
+
 class WordCountRange(models.Model):
-    word_count_range_id = models.IntegerField()
-    max_words = models.IntegerField(null = True) #null signifies inf
+    servicelist = models.ForeignKey(ServiceList)
     min_words = models.IntegerField(null = True) #null signifies 0
+    max_words = models.IntegerField(null = True) #null signifies inf
     def display_text(self):
         if self.min_words is None:
             if self.max_words is None:
                 text = 'Any word count'
             else:
-                text = 'Less than '+str(self.max_words)+' Words'
+                text = 'Fewer than '+str(self.max_words)+' Words'
         else:
             if self.max_words is None:
                 text = 'More than '+str(self.min_words)+' Words'
@@ -79,19 +105,24 @@ class WordCountRange(models.Model):
         return self.display_text()
 
 
-class PriceSet(models.Model):
-    is_active = models.BooleanField()
-    date_activated = models.DateTimeField()
+class ServiceType(models.Model):
+    servicelist = models.ForeignKey(ServiceList)
+    display_text = models.CharField(max_length=40)
+    display_order = models.IntegerField()
+    hours_until_due = models.IntegerField()
+    show_in_price_table = models.BooleanField()
+    def __unicode__(self):
+        return self.display_text
 
 
 class PricePoint(models.Model):
-    priceset = models.ForeignKey(PriceSet)
-    servicetype = models.ForeignKey(ServiceType)
     wordcountrange = models.ForeignKey(WordCountRange)
-    dollars = models.DecimalField(max_digits=7, decimal_places=2)
-    dollars_per_word = models.DecimalField(max_digits=7, decimal_places=3)
+    servicetype = models.ForeignKey(ServiceType)
+    dollars = models.DecimalField(null=True, max_digits=7, decimal_places=2)
+    dollars_per_word = models.DecimalField(null=True, max_digits=7, decimal_places=3)
     is_price_per_word = models.BooleanField()
-    is_enabled = models.BooleanField()
+    def __unicode__(self):
+        return str(self.price_point_id)+'|'+self.servicetype.display_text+'|'+self.wordcountrange.display_text()
 
 
 class Coupon(models.Model):
