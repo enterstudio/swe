@@ -71,25 +71,16 @@ display: inline;
 text-align: left;
 white-space: nowrap;
 }
+.name img{
+position: relative;
+margin: 40px 0 0 0;
+white-space: nowrap;
+}
 .logo img{
 margin: 38px 0px 0px 20px;
 }
 a.logo:hover, a.logo:focus, a.logo:visited, a.logo:active{
 text-decoration: none;
-}
-.name{
-padding-left: 40px;
-position: relative;
-top: 41px;
-font-size: 27px;
-color: #333;
-font-family: "Times New Roman", Times, serif;
-white-space: nowrap;
-}
-.name .initial
-{
-font-size: 35px;
-color: #1217BB;
 }
 .header-right{
 text-align: center;
@@ -171,16 +162,46 @@ box-shadow: 1px 2px 4px #888;
 -webkit-box-shadow: 1px 1px 3px #000;
 box-shadow: 1px 1px 3px #000;
 }
+.light-box{
+background-image: linear-gradient(bottom, rgb(250,167,50) 50%, rgb(251,180,80) 73%);
+background-image: -o-linear-gradient(bottom, rgb(250,167,50) 50%, rgb(251,180,80) 73%);
+background-image: -moz-linear-gradient(bottom, rgb(250,167,50) 50%, rgb(251,180,80) 73%);
+background-image: -webkit-linear-gradient(bottom, rgb(250,167,50) 50%, rgb(251,180,80) 73%);
+background-image: -ms-linear-gradient(bottom, rgb(250,167,50) 50%, rgb(251,180,80) 73%);
+
+background-image: -webkit-gradient(
+    linear,
+    left bottom,
+    left top,
+    color-stop(0.5, rgb(250,167,50)),
+    color-stop(0.73, rgb(251,180,80))
+);
+border-radius: 10px;
+color: #000;
+padding:40px 0 0 0;
+}
 .home-content{
-background-color: #020233;
-border-radius: 15px;
+background-image: linear-gradient(bottom, rgb(2,2,51) 50%, rgb(3,3,69) 79%);
+background-image: -o-linear-gradient(bottom, rgb(2,2,51) 50%, rgb(3,3,69) 79%);
+background-image: -moz-linear-gradient(bottom, rgb(2,2,51) 50%, rgb(3,3,69) 79%);
+background-image: -webkit-linear-gradient(bottom, rgb(2,2,51) 50%, rgb(3,3,69) 79%);
+background-image: -ms-linear-gradient(bottom, rgb(2,2,51) 50%, rgb(3,3,69) 79%);
+
+background-image: -webkit-gradient(
+    linear,
+    left bottom,
+    left top,
+    color-stop(0.5, rgb(2,2,51)),
+    color-stop(0.79, rgb(3,3,69))
+);
+border-radius: 10px;
 color: #DDD;
 font-family: "Times New Roman", Times, serif;
 font-size: 16px;
 }
 .home-left img{
 margin: 40px 20px 20px 40px;
-border-radius: 5px;
+border-radius: 2px;
 }
 .home-right{
 margin-top: 20px;
@@ -204,14 +225,37 @@ display: inline;
 text-align: center;
 margin: 0 auto;
 }
+.left{
+text-align: left;
+}
+.right{
+text-align: right !important;
+}
 .table-header{
 font-style: italic;
 }
 .messages{
+color: #B00;
 background-color: #DDD;
 margin-bottom: 16px;
 padding-top: 8px;
+border-radius: 5px;
 }
 .errorlist{
-color: #F00;
+color: #B00;
+}
+table.tbl-center{
+table-layout: fixed;
+width: 100%;
+}
+table.tbl-center th{
+padding-right:20px;
+text-align: right;
+}
+table.tbl-left th{
+padding-right:20px;
+text-align: right;
+}
+.bold{
+font-weight: bold;
 }

@@ -1,13 +1,13 @@
 from django import forms
 from django.contrib.auth.models import User
 from django.utils.safestring import mark_safe
-from swe.models import SubjectList, Subject, ServiceList, ServiceType, WordCountRange
+from swe.models import SubjectList, Subject, ServiceList, ServiceType, WordCountRange, ManuscriptOrder
  
 class RegisterForm(forms.Form):
-    firstname = forms.CharField(label='First Name',
+    first_name = forms.CharField(label='First Name',
                             max_length=30,
                             )
-    lastname = forms.CharField(label='Last Name',
+    last_name = forms.CharField(label='Last Name',
                             max_length=30,
                             )
     #email is be treated as username in auth.models.User and separately written to active_email in UserProfile
@@ -18,14 +18,14 @@ class RegisterForm(forms.Form):
                             max_length = 30,
                             widget=forms.PasswordInput,
                             )
-    passwordconfirm = forms.CharField(label='Re-type password',
+    password_confirm = forms.CharField(label='Re-type password',
                             max_length = 30,
                             widget=forms.PasswordInput,
                             )
 
     def clean(self):
         cleaned_data = super(RegisterForm,self).clean()
-        if cleaned_data.get('password') != cleaned_data.get('passwordconfirm'):
+        if cleaned_data.get('password') != cleaned_data.get('password_confirm'):
             raise forms.ValidationError('The passwords do not match')
         return cleaned_data
 
@@ -69,22 +69,40 @@ class ActivationRequestForm(forms.Form):
         return email
 
 
-class SubmitManuscriptForm1(forms.Form):
+class UploadManuscriptForm(forms.Form):
+    step = forms.IntegerField(initial=1, widget = forms.widgets.HiddenInput())
     title = forms.CharField(label='Title (choose any name that helps you remember)', max_length=50, required=False)
-
-    subjectlist = SubjectList.objects.get(is_active=True)
-    subject = forms.ChoiceField(label='Field of study', choices=subjectlist.get_subject_choicelist(), required=False)
-
-    servicelist = ServiceList.objects.get(is_active=True)
-    wordcount = forms.ModelChoiceField(
-        label='Word count (do not include references)',
-        queryset=servicelist.wordcountrange_set,
-        empty_label=None,
+    subject = forms.ChoiceField(
+        label='Field of study', 
+        choices=SubjectList.objects.get(is_active=True).get_subject_choicelist(), 
         )
+    word_count = forms.ChoiceField(
+        label='Word count (do not include references)',
+        choices=ServiceList.objects.get(is_active=True).get_wordcountrange_choicelist(),
+        )
+    manuscript_file = forms.FileField(label='Select your manuscript file')
 
-#    manuscriptfile = forms.FileField(label='Select your manuscript file')
+class SelectServiceForm(forms.Form):
+    servicetype = forms.ChoiceField(label='Type of service')
+    def __init__(self, *args, **kwargs):
+        # Order PK must be defined either in kwargs or POST data
+        try:
+            order_pk = kwargs['order_pk']
+            del[kwargs['order_pk']]
+        except KeyError:
+            order_pk = None
+        super(SelectServiceForm, self).__init__(*args, **kwargs)
+        self.fields['step'] = forms.IntegerField(widget = forms.widgets.HiddenInput(), initial=2)
+        if order_pk == None:
+            try:
+                order_pk = self.data['order']
+            except KeyError:
+                raise Exception('Order number is not available.')
+        self.fields['order'] = forms.IntegerField(widget = forms.widgets.HiddenInput(), initial=order_pk)
+        self.fields['servicetype'].choices = ManuscriptOrder.objects.get(pk=order_pk).wordcountrange.get_pricepoint_choicelist()
 
-class SubmitManuscriptForm2(forms.Form):
-    temp_place_holder = forms.CharField(label='How do you feel about the color orange?', max_length=50, required=False)
-
-
+class SelectServiceAndExactWordCountForm(SelectServiceForm):
+    def __init__(self, *args, **kwargs):
+        super(SelectServiceAndExactWordCountForm, self).__init__(*args, **kwargs)
+        self.fields['step'] = forms.IntegerField(widget = forms.widgets.HiddenInput(), initial=3)
+        self.fields['word_count_exact'] = forms.IntegerField(label = 'Number of words in the manuscript (excluding references)')

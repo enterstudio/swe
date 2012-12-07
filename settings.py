@@ -76,12 +76,20 @@ except KeyError:
 if LOCAL_STORAGE:
     STATIC_URL = '/static/'
     STATIC_ROOT = os.path.join(ROOT_DIR, 'staticfiles/')
+    STATICFILES_DIRS = [
+        os.path.join(ROOT_DIR, 'static/')
+        ]
 else:
     AWS_ACCESS_KEY_ID = os.environ['AWS_ACCESS_KEY_ID']
     AWS_SECRET_ACCESS_KEY = os.environ['AWS_SECRET_ACCESS_KEY']
     AWS_STORAGE_BUCKET_NAME = os.environ['S3_BUCKET_NAME']
     STATIC_URL = 'https://'+AWS_STORAGE_BUCKET_NAME+'.s3.amazonaws.com/'
     STATICFILES_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
+
+try:
+    GOOGLE_TRACKING_ID=os.environ['GOOGLE_TRACKING_ID']
+except KeyError:
+    GOOGLE_TRACKING_ID=None
 
 EMAIL_HOST = 'smtp.sendgrid.net'
 EMAIL_HOST_USER = os.environ['SENDGRID_USERNAME']
@@ -172,3 +180,4 @@ INSTALLED_APPS = (
 #        },
 #    }
 #}
+

@@ -7,6 +7,16 @@ from django.db import models
 from django.utils import timezone
 
 
+# <Helpers>
+def get_file_path(instance, oldfilename):
+    ext = oldfilename.split('.')[-1]
+    shortname = '.'.join(oldfilename.split('.')[0:-1])
+    newfilename = "%s.%s.%s" % (shortname, uuid.uuid4(), ext)
+    path = strftime('%Y/%m/%d',gmtime())
+    return os.path.join('manuscripts', path, newfilename)
+
+# </Helpers>
+
 class UserProfile(models.Model):
     user = models.OneToOneField(User)
     activation_key = models.CharField(max_length=40)
@@ -17,28 +27,13 @@ class UserProfile(models.Model):
         return self.user.username
 
 
-def get_file_path(instance, oldfilename):
-    ext = oldfilename.split('.')[-1]
-    shortname = '.'.join(oldfilename.split('.')[0:-1])
-    newfilename = "%s.%s.%s" % (shortname, uuid.uuid4(), ext)
-    path = strftime('%Y/%m/%d',gmtime())
-    return os.path.join('manuscripts', path, newfilename)
-
-
-class FileType(models.Model):
-    file_type_id = models.IntegerField()
-    display_text = models.CharField(max_length=40)
-    file_suffix = models.CharField(max_length=10)
-    def __unicode__(self):
-        return self.display_text
-
-
 class Document(models.Model):
+    # Has subclasses OriginalDocument and EditedDocument
+    # Foreign Key defined in ManuscriptOrder
     manuscript_file = models.FileField(upload_to=get_file_path)
     original_name = models.CharField(max_length=255)
     datetime_uploaded = models.DateTimeField()
     notes = models.CharField(max_length=1000, blank=True, null=True)
-    file_type = models.ForeignKey(FileType, blank=True, null=True)
     def __unicode__(self):
         return self.original_name
 
@@ -48,7 +43,7 @@ class SubjectList(models.Model):
     date_activated = models.DateTimeField(null=True)
     def get_subject_choicelist(self):
         categories = self.subjectcategory_set.all().order_by('display_order')
-        choicelist = []
+        choicelist = [('', '-- Select field of study --')]
         for category in categories:
             choicegroup = []
             subjects = category.subject_set.all().order_by('display_order')
@@ -62,7 +57,7 @@ class SubjectList(models.Model):
 
 
 class SubjectCategory(models.Model):
-    subjectset = models.ForeignKey(SubjectList)
+    subjectlist = models.ForeignKey(SubjectList)
     display_text=models.CharField(max_length=40)
     display_order = models.IntegerField()
     def __unicode__(self):
@@ -81,6 +76,12 @@ class Subject(models.Model):
 class ServiceList(models.Model):
     is_active = models.BooleanField()
     date_activated = models.DateTimeField(null=True)
+    def get_wordcountrange_choicelist(self):
+        wordcounts = self.wordcountrange_set.all().order_by('max_words')
+        choicelist = [('', '-- Select word count --')]
+        for wordcount in wordcounts:
+            choicelist.append((wordcount.pk, wordcount.display_text()))
+        return choicelist
     def __unicode__(self):
         return datetime.strftime(self.date_activated, "%Y-%m-%d %H:%M:%S")
 
@@ -89,6 +90,14 @@ class WordCountRange(models.Model):
     servicelist = models.ForeignKey(ServiceList)
     min_words = models.IntegerField(null = True) #null signifies 0
     max_words = models.IntegerField(null = True) #null signifies inf
+    def get_pricepoint_choicelist(self):
+        pricepoints = self.pricepoint_set.all().order_by('display_order')
+        choicelist = [('','-- Select service type --')]
+        for pricepoint in pricepoints:
+            servicetype = pricepoint.servicetype
+            display_text = servicetype.display_text+'  ('+pricepoint.display_text()+')'
+            choicelist.append((pricepoint.pk, display_text))
+        return choicelist
     def display_text(self):
         if self.min_words is None:
             if self.max_words is None:
@@ -121,11 +130,18 @@ class PricePoint(models.Model):
     dollars = models.DecimalField(null=True, max_digits=7, decimal_places=2)
     dollars_per_word = models.DecimalField(null=True, max_digits=7, decimal_places=3)
     is_price_per_word = models.BooleanField()
+    display_order = models.IntegerField()
+    def display_text(self):
+        if self.is_price_per_word:
+            return ('$%.3f per word' % self.dollars_per_word)
+        else:
+            return ('$%.2f' % self.dollars)
     def __unicode__(self):
-        return str(self.price_point_id)+'|'+self.servicetype.display_text+'|'+self.wordcountrange.display_text()
+        return str(self.display_text())+'|'+self.servicetype.display_text+'|'+self.wordcountrange.display_text()
 
 
 class Coupon(models.Model):
+    # ManyToMany defined in Payment
     display_text = models.CharField(max_length=200)
     code = models.CharField(max_length=20)
     dollars_off = models.DecimalField(null=True, max_digits=7, decimal_places=2)
@@ -139,42 +155,64 @@ class Coupon(models.Model):
 class ManuscriptOrder(models.Model):
     title = models.CharField(max_length=200)
     # OneToOne defined in OriginalDocument
-    # OneToMany defined in ManuscriptEdit
-    current_document_version = models.ForeignKey(Document,null=True)
-    service_type = models.CharField(max_length=60)
-    subject = models.ForeignKey(Subject)
-    word_count_range = models.ForeignKey(WordCountRange)
+    # ForeignKey defined in ManuscriptEdit
+    # ForeignKey defined in Payment
+    current_document_version = models.ForeignKey(Document, null=True)
+    servicetype = models.ForeignKey(ServiceType, null=True)
+    wordcountrange = models.ForeignKey(WordCountRange, null=True)
+    pricepoint = models.ForeignKey(PricePoint, null=True)
     word_count_exact = models.IntegerField(null=True, blank=True)
+    subject = models.ForeignKey(Subject, null=True)
     customer = models.ForeignKey(User)
-    datetime_submitted = models.DateTimeField()
-    datetime_due = models.DateTimeField()
+    datetime_submitted = models.DateTimeField(null=True)
+    datetime_due = models.DateTimeField(null=True)
     is_editing_complete = models.BooleanField()
     was_customer_notified = models.BooleanField()
     did_customer_retrieve = models.BooleanField()
-    managing_editor = models.ForeignKey(User, related_name='assignedmanuscriptorder_set', null=True, blank=True)
-    # payment
+    managing_editor = models.ForeignKey(User, related_name='manuscriptorder_managed_set', null=True, blank=True)
     def __unicode__(self):
         return self.title
 
 
+class CustomerPayment(models.Model):
+    coupons = models.ManyToManyField(Coupon)
+    manuscriptorder = models.ForeignKey(ManuscriptOrder)
+    paypal_ipn_id = models.IntegerField(null=True)
+    invoice_id = models.IntegerField(null=True)
+    price_full = models.DecimalField(null=True, max_digits=7, decimal_places=2)
+    price_paid = models.DecimalField(null=True, max_digits=7, decimal_places=2)
+    def get_amount_to_pay(self):
+        amount_to_pay = self.price_full
+        if (amount_to_pay<0):
+            raise Exception('Invalid payment amount.')
+        if amount_to_pay == None:
+            raise Exception('Payment amount is not defined.')
+        return "%.2f" % amount_to_pay
+    def get_invoice_id_and_save(self):
+        offset = 24269
+        self.invoice_id = self.pk + offset
+        self.save()
+        return self.invoice_id
+
+
 class OriginalDocument(Document):
-    manuscript_order = models.OneToOneField(ManuscriptOrder)
+    manuscriptorder = models.OneToOneField(ManuscriptOrder)
     def __unicode__(self):
         return self.manuscript_order.title
 
 
 class EditedDocument(Document):
-    manuscript_order = models.ForeignKey(ManuscriptOrder)
-    parent_document = models.ForeignKey(Document,related_name='+')
-    submitted_by = models.ForeignKey(User)
+    parent_document = models.OneToOneField(Document)
     def __unicode__(self):
         return self.manuscript_order.title+' Original'
 
 
 class ManuscriptEdit(models.Model):
-    manuscript_order = models.ForeignKey(ManuscriptOrder)
-    starting_document = models.ForeignKey(Document,related_name='+')
-    edited_document = models.ForeignKey(Document, null=True, blank=True, related_name='+')
-    #payment
+    manuscriptorder = models.ForeignKey(ManuscriptOrder)
+    starting_document = models.ForeignKey(Document)
+    editeddocument = models.OneToOneField(EditedDocument, null=True, blank=True)
+    editor = models.OneToOneField(User)
+    is_open = models.BooleanField()
+    # TODO: Payment to editor
     def __unicode__(self):
         return self.manuscript_order.title+' Edit id '+self.id

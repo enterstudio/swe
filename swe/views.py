@@ -6,7 +6,6 @@ from django import forms
 from django.conf import settings
 from django.contrib import messages, auth
 from django.contrib.auth.models import User
-from django.contrib.formtools.wizard.views import SessionWizardView
 from django.core.files.storage import FileSystemStorage
 from django.core.mail import send_mail
 from django.core.urlresolvers import reverse
@@ -18,7 +17,7 @@ from django.views.decorators.csrf import csrf_exempt
 from paypal.standard.forms import PayPalPaymentsForm
 from swe.context import RequestGlobalContext
 from swe import forms
-from swe.models import UserProfile, ManuscriptOrder, OriginalDocument
+from swe import models
 from swe.messagecatalog import MessageCatalog
 
 
@@ -67,7 +66,6 @@ def login(request):
                 if user.is_active:
                     # success
                     auth.login(request,user)
-                    messages.add_message(request,messages.SUCCESS,'You are logged in.')
                     if user.groups.filter(name='Editors').exists() or user.groups.filter(name='Managers').exists():
                         return HttpResponseRedirect('/editor/home/')
                     else:
@@ -77,7 +75,7 @@ def login(request):
                     messages.add_message(request,messages.ERROR,
                                          'This account is not activated. Please check your email for instructions to activate this account.')
                     t = loader.get_template('login.html')
-                    c = RequestGlobalContext(request, { 'form': form })
+                    c = RequestGlobalContext(request, {'form': form})
                     return HttpResponse(t.render(c))
             else:
                 # invalid login info
@@ -116,105 +114,127 @@ def account(request):
     return HttpResponse(t.render(c))
 
 
-def order(request):
+def order(request):    
+    def process_form_2or3(request, form):
+        if form.is_valid():
+            new_data=form.cleaned_data;
+            m = models.ManuscriptOrder.objects.get(pk=int(new_data[u'order']))
+            m.pricepoint = models.PricePoint.objects.get(pk=int(new_data[u'servicetype']))
+            m.servicetype = m.pricepoint.servicetype
+            m.datetime_submitted=datetime.datetime.utcnow().replace(tzinfo=utc)
+            m.datetime_due = datetime.datetime.utcnow().replace(tzinfo=utc) + datetime.timedelta(m.servicetype.hours_until_due/24)
+            try:
+                m.word_count_exact = new_data[u'word_count_exact']
+            except KeyError:
+                m.word_count_exact = None
+            m.save()
+            if m.pricepoint.is_price_per_word:
+                price_full = m.pricepoint.dollars_per_word * m.word_count_exact
+            else:
+                price_full = m.pricepoint.dollars
+            p = models.CustomerPayment(
+                manuscriptorder=m,
+                price_full=price_full,
+                )
+            p.save()
+
+            if m.word_count_exact is not None:
+                word_count_text = str(m.word_count_exact)+" words"
+            else:
+                word_count_text = m.wordcountrange.display_text()
+
+            description = "Manuscript editing, "+word_count_text+", "+m.servicetype.display_text
+            invoice = {
+                'rows': [
+                    {'description': description, 'amount': p.get_amount_to_pay()},
+                    ],
+                'subtotal': p.get_amount_to_pay(),
+                'tax': '0.00',
+                'amount_due': p.get_amount_to_pay(),
+                'invoice_id': p.get_invoice_id_and_save(),
+                }
+            context = {'invoice': invoice}
+            #Render payment form
+            paypal_dict = {
+                "business": settings.PAYPAL_RECEIVER_EMAIL,
+                "amount": invoice['amount_due'],
+                "item_name": description,
+                "invoice": invoice['invoice_id'],
+                "notify_url": "%s%s" % (settings.ROOT_URL, reverse('paypal-ipn')),
+                "return_url": "%s%s" % (settings.ROOT_URL, 'paymentreceived/'),
+                "cancel_return": "%s%s" % (settings.ROOT_URL, 'paymentcanceled/'),
+                }
+            form = PayPalPaymentsForm(initial=paypal_dict)
+            if settings.RACK_ENV=='production':
+                context["pay_button"] = form.render()
+            else:
+                context["pay_button"] = form.sandbox()
+            context = RequestGlobalContext(request, context)
+            return render_to_response("order/submit_payment.html", context)
+
+        else: #form invalid
+            messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
+            t = loader.get_template('order/form2or3.html')
+            c = RequestGlobalContext(request, {'form': form})
+            return HttpResponse(t.render(c))
+
     if settings.BLOCK_SERVICE:
         return HttpResponseRedirect('/comebacksoon/')
-    from swe.models import WordCountRange, Subject, ServiceType, Document
     if not request.user.is_authenticated():
         return HttpResponseRedirect('/register/')
     if request.method == 'POST':
-        form = forms.SubmitManuscriptForm1(request.POST, request.FILES)
-        if form.is_valid():
-            new_data=form.cleaned_data;
-            #submit manusript
-            word_count_range=new_data[u'wordcount']
-            service_type=new_data[u'servicetype']
-            subject=new_data[u'subject']
-            m = ManuscriptOrder(
-                title=new_data[u'title'],
-                word_count_range=word_count_range,
-                service_type=service_type,
-                subject=subject,
-                customer=request.user,
-                datetime_submitted=datetime.datetime.utcnow().replace(tzinfo=utc),
-                )
-            days_until_due = service_type.hours_until_due/24
-            m.datetime_due = datetime.datetime.utcnow().replace(tzinfo=utc) + datetime.timedelta(days_until_due)
-            m.save()
-            d = OriginalDocument(
-                manuscript_order = m,
-                manuscript_file=request.FILES[u'manuscriptfile'],
-                original_name =request.FILES[u'manuscriptfile'].name,
-                datetime_uploaded=datetime.datetime.utcnow().replace(tzinfo=utc),
-                )
-            d.save()
-            m.current_document_version = Document.objects.get(id=d.document_ptr_id)
-            m.save()
-            messages.add_message(request,messages.SUCCESS, 'Your manuscript was uploaded.')
-            t = loader.get_template('todo.html')
-            c = RequestGlobalContext(request, {'text': 'Go somewhere after file upload'})
-            return HttpResponse(t.render(c))
-        else:
-            #form invalid
-            messages.add_message(request,messages.ERROR,MessageCatalog.form_invalid)
-            form = forms.SubmitManuscriptForm1()
-            t = loader.get_template('submitmanuscript.html')
-            c = RequestGlobalContext(request, {
-                'form': form
-            })
-            return HttpResponse(t.render(c))
-    else:
-        form = forms.SubmitManuscriptForm1()
-        t = loader.get_template('submitmanuscript.html')
+        try:
+            if models.ManuscriptOrder.objects.get(pk=request.POST[u'order']).customer != request.user:
+                # Not your manuscript. Abort!
+                messages.add_message(request, messages.ERROR, 'This is not allowed. Please contact support.')
+                return HttpResponseRedirect('/home/')
+        except KeyError:
+            pass
+        if request.POST[u'step']==u'1': #Step 1 was submitted
+            form = forms.UploadManuscriptForm(request.POST, request.FILES)
+            if form.is_valid():
+                new_data=form.cleaned_data;
+                m = models.ManuscriptOrder(
+                    title=new_data[u'title'],
+                    wordcountrange=models.WordCountRange.objects.get(pk=int(new_data[u'word_count'])),
+                    subject=models.Subject.objects.get(pk=int(new_data[u'subject'])),
+                    customer=request.user,
+                    )
+                m.save()
+                d = models.OriginalDocument(
+                    manuscriptorder = m,
+                    manuscript_file=request.FILES[u'manuscript_file'],
+                    original_name =request.FILES[u'manuscript_file'].name,
+                    datetime_uploaded=datetime.datetime.utcnow().replace(tzinfo=utc),
+                    )
+                d.save()
+                m.current_document_version = models.Document.objects.get(id=d.document_ptr_id)
+                m.save()
+                if m.wordcountrange.max_words == None: # Need form that requests exact word count to calculate price
+                    nextform = forms.SelectServiceAndExactWordCountForm(order_pk=m.pk)
+                else:                 
+                    nextform = forms.SelectServiceForm(order_pk=m.pk)
+                t = loader.get_template('order/form2or3.html')
+                c = RequestGlobalContext(request, {'form': nextform})
+                return HttpResponse(t.render(c))
+            else: #form1 invalid
+                messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
+                t = loader.get_template('order/form1.html')
+                c = RequestGlobalContext(request, {'form': form})
+                return HttpResponse(t.render(c))
+        elif (request.POST[u'step']==u'2'): #Step 2 was submitted
+            form = forms.SelectServiceForm(request.POST)
+            return process_form_2or3(request, form)
+        elif (request.POST[u'step']==u'3'): #Step 3 was submitted
+            form = forms.SelectServiceAndExactWordCountForm(request.POST)
+            return process_form_2or3(request, form)
+    else: # GET request
+        form = forms.UploadManuscriptForm()
+        t = loader.get_template('order/form1.html')
         c = RequestGlobalContext(request, {
             'form': form,
         })
         return HttpResponse(t.render(c)) 
-
-
-class OrderWizard(SessionWizardView):
-    file_storage = FileSystemStorage(location=os.path.join(settings.MEDIA_ROOT, 'manuscripts'))
-
-    FORMS = [(u'form1', forms.SubmitManuscriptForm1), 
-             (u'form2', forms.SubmitManuscriptForm2),
-             ]
- 
-    TEMPLATES = {u'form1': "order/form1.html",
-                 u'form2': "order/form2.html"}
-
-    def done(self, form_list, **kwargs):
-        t = loader.get_template('todo.html')
-        c = RequestGlobalContext(request, {'text': 'Form Wizard'})
-        return HttpResponse(t.render(c))
-
-    def render(self, form=None, **kwargs):
-        form = form or self.get_form()
-        context = RequestGlobalContext(self.request, self.get_context_data(form=form, **kwargs))
-        return self.render_to_response(context)
-
-#    def get_form(self, step=None, data=None, files=None):
-#        import pdb; pdb.set_trace()
-#        if step:
-#            step_files = self.storage.get_step_files(step)
-#        else:
-#            step_files = self.storage.current_step_files
-            
-#        if step_files and files:
-#            for key, value in step_files.items():
-#                if files.has_key(key) and files[key] is not None:
-#                    step_files[key] = files[key]
-#        elif files:
-#            step_files = files
-
-#        return super(OrderWizard, self).get_form(step, data, step_files)
-
-    def get_template_names(self):
-        return [self.TEMPLATES[self.steps.current]]
-
-
-def orderview(request):
-    wizard = OrderWizard.as_view(OrderWizard.FORMS)
-    return wizard(request=request)
 
 
 def create_activation_key(user):
@@ -235,7 +255,7 @@ def register(request):
     if request.user.is_authenticated():
         # They already have an account; don't let them register again
         messages.add_message(request,messages.INFO,'You already have an account. To register a separate account, please logout.')
-        return HttpResponseRedirect('/home/')
+        return HttpResponseRedirect('/order/')
     if request.method == 'POST':
         form = forms.RegisterForm(request.POST)
         if form.is_valid():
@@ -244,13 +264,13 @@ def register(request):
                                                 email = new_data['email'],
                                                 password = new_data['password'])
             new_user.is_active = False
-            new_user.first_name = new_data['firstname']
-            new_user.last_name = new_data['lastname']
+            new_user.first_name = new_data['first_name']
+            new_user.last_name = new_data['last_name']
             new_user.save()
             activation_key = create_activation_key(new_user)
             key_expires = get_activation_key_expiration()
             # Create and save their profile
-            new_profile = UserProfile(user=new_user,
+            new_profile = models.UserProfile(user=new_user,
                                       activation_key=activation_key,
                                       key_expires=key_expires,
                                       active_email=new_data['email'],
@@ -258,7 +278,7 @@ def register(request):
                                       )
             # Send an email with the confirmation link
             email_subject = 'Your new Science Writing Experts account confirmation'
-            t = loader.get_template('activationrequest.txt')
+            t = loader.get_template('activation_request.txt')
             c = Context({'activation_key': new_profile.activation_key,
                          'customer_service_name': settings.CUSTOMER_SERVICE_NAME,
                          'customer_service_title': settings.CUSTOMER_SERVICE_TITLE,
@@ -296,14 +316,14 @@ def confirm(request, activation_key=None):
         if form.is_valid():
             activation_key = form.cleaned_data['activation_key']
             try:
-                user_profile = UserProfile.objects.get(activation_key=activation_key)
-            except UserProfile.DoesNotExist:
+                userprofile = models.UserProfile.objects.get(activation_key=activation_key)
+            except models.UserProfile.DoesNotExist:
                 # Could not find activation key
                 messages.add_message(request,messages.ERROR,'The activation key is not valid. Please check that you copied it correctly.')
                 t = loader.get_template('confirm.html')
                 c = RequestGlobalContext(request, {'form':form})
                 return HttpResponse(t.render(c))
-            if user_profile.key_expires < datetime.datetime.utcnow().replace(tzinfo=utc):
+            if userprofile.key_expires < datetime.datetime.utcnow().replace(tzinfo=utc):
                 # Key expired
                 messages.add_message(request,messages.ERROR,'The activation key has expired.')
                 t = loader.get_template('confirm.html')
@@ -311,7 +331,7 @@ def confirm(request, activation_key=None):
                 return HttpResponse(t.render(c))
             else:
                 # Key is good
-                user_account = user_profile.user
+                user_account = userprofile.user
                 user_account.is_active = True
                 user_account.save()        
                 messages.add_message(request,messages.SUCCESS,
@@ -343,7 +363,7 @@ def activationrequest(request):
             user = User.objects.get(username=form.cleaned_data[u'email'])
             activation_key = create_activation_key(user)
             key_expires = get_activation_key_expiration()
-            profile = UserProfile.objects.get(user=user)
+            profile = models.UserProfile.objects.get(user=user)
             profile.activation_key = activation_key
             profile.key_expires = key_expires
             # Send an email with the confirmation link
@@ -363,7 +383,7 @@ def activationrequest(request):
             messages.add_message(request,messages.ERROR,MessageCatalog.form_invalid)
     else:
         form = forms.ActivationRequestForm()
-    t = loader.get_template('activationrequest.html')
+    t = loader.get_template('activation_request.html')
     c = RequestGlobalContext(request, { 'form': form })
     return HttpResponse(t.render(c))
 

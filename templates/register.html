@@ -1,11 +1,23 @@
 {% extends "plain.html" %}
 {% block pageContentNoFormat %}
-<h3>Register for an account</h3>
-<p>
-Already registered? <a href="/login/">Login here</a>.
-</p>
-<form action="/register/" method="post">{% csrf_token %}
-{{ form.as_p }}
-<input type="submit" value="Register" class="btn-large btn-inverse" />
-</form>
+<h3>Register</h3>
+<div class="row">
+  <div class="span10">
+    <p>
+      Already registered? <a href="/login/">Login here</a>.
+    </p>
+    <form action="/register/" method="post" enctype="multipart/form-data">{% csrf_token %}
+      <table class="tbl-left">
+	{{ form.as_table }}
+	<tr>
+	  <th></th>
+	  <td>
+	    <input type="submit" value="Register" class="btn-large btn-inverse" />
+	  </td>
+	</tr>
+      </table>
+    </form>
+  </div>
+</div>
 {% endblock %}
+
