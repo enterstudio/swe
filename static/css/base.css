@@ -71,9 +71,9 @@ display: inline;
 text-align: left;
 white-space: nowrap;
 }
-.name img{
+img.name{
 position: relative;
-margin: 40px 0 0 0;
+margin: 59px 0 0 50px;
 white-space: nowrap;
 }
 .logo img{
@@ -236,10 +236,8 @@ font-style: italic;
 }
 .messages{
 color: #B00;
-background-color: #DDD;
-margin-bottom: 16px;
+margin-bottom: 8px;
 padding-top: 8px;
-border-radius: 5px;
 }
 .errorlist{
 color: #B00;

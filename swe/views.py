@@ -13,8 +13,10 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render_to_response, get_object_or_404
 from django.template import loader, Context
 from django.utils.timezone import utc
-from django.views.decorators.csrf import csrf_exempt
-from paypal.standard.forms import PayPalPaymentsForm
+from django.views.decorators.csrf import csrf_exempt 
+from django.views.decorators.http import require_POST
+from paypal.standard.forms import PayPalPaymentsForm 
+from paypal.standard.ipn.forms import PayPalIPNForm
 from swe.context import RequestGlobalContext
 from swe import forms
 from swe import models
@@ -210,10 +212,7 @@ def order(request):
                 d.save()
                 m.current_document_version = models.Document.objects.get(id=d.document_ptr_id)
                 m.save()
-                if m.wordcountrange.max_words == None: # Need form that requests exact word count to calculate price
-                    nextform = forms.SelectServiceAndExactWordCountForm(order_pk=m.pk)
-                else:                 
-                    nextform = forms.SelectServiceForm(order_pk=m.pk)
+                nextform = forms.SelectServiceForm(order_pk=m.pk)
                 t = loader.get_template('order/form2or3.html')
                 c = RequestGlobalContext(request, {'form': nextform})
                 return HttpResponse(t.render(c))
@@ -225,9 +224,8 @@ def order(request):
         elif (request.POST[u'step']==u'2'): #Step 2 was submitted
             form = forms.SelectServiceForm(request.POST)
             return process_form_2or3(request, form)
-        elif (request.POST[u'step']==u'3'): #Step 3 was submitted
-            form = forms.SelectServiceAndExactWordCountForm(request.POST)
-            return process_form_2or3(request, form)
+        else:
+            raise Exception('No valid step number was specified')
     else: # GET request
         form = forms.UploadManuscriptForm()
         t = loader.get_template('order/form1.html')
@@ -418,31 +416,58 @@ def block(request):
     return HttpResponse(t.render(c))
 
 
-def paypal(request):
-    paypal_dict = {
-        "business": settings.PAYPAL_RECEIVER_EMAIL,
-        "amount": "1.00",
-        "item_name": "name of the item",
-        "invoice": "unique-invoice-id",
-        "notify_url": "%s%s" % (settings.ROOT_URL, reverse('paypal-ipn')),
-        "return_url": "%s%s" % (settings.ROOT_URL, 'paymentreceived/'),
-        "cancel_return": "%s%s" % (settings.ROOT_URL, 'paymentcanceled/'),
-        }
-    form = forms.PayPalPaymentsForm(initial=paypal_dict)
-    if settings.RACK_ENV=='production':
-        context = {"form": form.render()}
-    else:
-        context = {"form": form.sandbox()}
-    return render_to_response("paypal.html", context)
-
-
 @csrf_exempt
 def paymentcanceled(request):
-    messages.add_message(request, messages.ERROR, 'Payment failed.')
+    messages.add_message(request, messages.ERROR, 'Payment failed. Please contact support for further assistance.')
     return HttpResponseRedirect('/home/')
 
 
 @csrf_exempt
 def paymentreceived(request):
-    messages.add_message(request, messages.SUCCESS, 'Payment received.')
+    messages.add_message(request, messages.SUCCESS, 'Your payment was received.')
     return HttpResponseRedirect('/home/')
+
+
+@require_POST
+@csrf_exempt
+def ipn(request, item_check_callable=None):
+
+    """
+    PayPal IPN endpoint (notify_url).
+    Used by both PayPal Payments Pro and Payments Standard to confirm transactions.
+    http://tinyurl.com/d9vu9d
+    
+    PayPal IPN Simulator:
+    https://developer.paypal.com/cgi-bin/devscr?cmd=_ipn-link-session
+    """
+
+    flag = None
+    ipn_obj = None
+    form = PayPalIPNForm(request.POST)
+    if form.is_valid():
+        try:
+            ipn_obj = form.save(commit=False)
+        except Exception, e:
+            flag = "Exception while processing. (%s)" % e
+    else:
+        flag = "Invalid form. (%s)" % form.errors
+
+    if ipn_obj is None:
+        ipn_obj = PayPalIPN()
+
+    ipn_obj.initialize(request)
+
+    if flag is not None:
+        ipn_obj.set_flag(flag)
+    else:
+        # Secrets should only be used over SSL.
+        if request.is_secure() and 'secret' in request.GET:
+            ipn_obj.verify_secret(form, request.GET['secret'])
+        else:
+            try:
+                ipn_obj.verify(item_check_callable)
+            except Exception, e:
+                flag = "Exception while processing. (%s)" % e
+    ipn_obj.save()
+
+    return HttpResponse("OKAY")

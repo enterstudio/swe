@@ -26,7 +26,6 @@ urlpatterns = patterns('swe.views',
     url(r'^contact/$', 'contact'),
     url(r'^careers/$', 'careers'),
     url(r'^comebacksoon/$', 'block'),
-    url(r'^paypal/$', 'paypal', name='paypal'),
     url(r'^paymentreceived/$', 'paymentreceived'),
     url(r'^paymentcanceled/$', 'paymentcanceled'),
 )

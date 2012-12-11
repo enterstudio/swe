@@ -51,10 +51,6 @@ USE_TZ = True
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_URL = os.environ['ROOT_URL']
-
-MEDIA_ROOT = os.path.join(ROOT_DIR,'media/')
-MEDIA_URL = '/media/'
-
 STATICFILES_DIRS = (
     os.path.join(ROOT_DIR, 'static/'),
 )
@@ -79,12 +75,30 @@ if LOCAL_STORAGE:
     STATICFILES_DIRS = [
         os.path.join(ROOT_DIR, 'static/')
         ]
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = os.path.join(ROOT_DIR,'media/')
+
 else:
+    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
     AWS_ACCESS_KEY_ID = os.environ['AWS_ACCESS_KEY_ID']
     AWS_SECRET_ACCESS_KEY = os.environ['AWS_SECRET_ACCESS_KEY']
     AWS_STORAGE_BUCKET_NAME = os.environ['S3_BUCKET_NAME']
+#    AWS_LOCATION = 'static'
     STATIC_URL = 'https://'+AWS_STORAGE_BUCKET_NAME+'.s3.amazonaws.com/'
     STATICFILES_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
+#    MEDIA_URL = 'https://'+AWS_STORAGE_BUCKET_NAME+'.s3.amazonaws.com/'
+
+#    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
+#    STATICFILES_STORAGE = 'swe.storage.S3StaticStorage'
+#    THUMBNAIL_DEFAULT_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
+#    AWS_ACCESS_KEY_ID = os.environ['AWS_ACCESS_KEY_ID']
+#    AWS_SECRET_ACCESS_KEY = os.environ['AWS_SECRET_ACCESS_KEY']
+#    AWS_STORAGE_BUCKET_NAME = os.environ['S3_STORAGE_BUCKET_NAME']
+#    AWS_STATIC_BUCKET_NAME = os.environ['S3_STATIC_BUCKET_NAME']
+#    AWS_S3_CUSTOM_DOMAIN = AWS_STORAGE_BUCKET_NAME
+#    AWS_STATIC_CUSTOM_DOMAIN = AWS_STATIC_BUCKET_NAME
+#    STATIC_URL = 'http://%s/' % AWS_STATIC_BUCKET_NAME
+#    MEDIA_URL = 'https://%s/' % AWS_STORAGE_BUCKET_NAME
 
 try:
     GOOGLE_TRACKING_ID=os.environ['GOOGLE_TRACKING_ID']
@@ -101,6 +115,11 @@ PAYPAL_RECEIVER_EMAIL = os.environ['PAYPAL_RECEIVER_EMAIL']
 
 CUSTOMER_SERVICE_NAME = "Nathan Hammond"
 CUSTOMER_SERVICE_TITLE = "Director of Customer Happiness"
+
+CONTENT_TYPES = ['text']
+# 2.5MB - 2621440; 5MB - 5242880; 10MB - 10485760; 20MB - 20971520; 50MB - 5242880
+# 100MB 104857600; 250MB - 214958080; 500MB - 429916160
+MAX_UPLOAD_SIZE = "104857600"
 
 # Make this unique, and don't share it with anybody.
 SECRET_KEY = '9e$#^u)-7xkr8w0=qi**o*p&amp;pe!f*l#0st@bmul2invw*incc='

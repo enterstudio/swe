@@ -1,0 +1,53 @@
+{% extends "plain.html" %}
+{% block pageContentNoFormat %}
+<h3>Submit payment</h3>
+<p class="right">
+  Invoice # {{ invoice.invoice_id}}
+</p>
+<table class="table">
+  <tr class="table-header">
+    <td>Description</td>
+    <td>Amount</td>
+  </tr>
+  {% for row in invoice.rows %}
+  <tr>
+    <td>{{ row.description }}</td>
+    <td>{{ row.amount}}</td>
+  </tr>
+  {% endfor %}
+  <tr>
+    <td></td>
+    <td><br/><br/></td>
+  </tr>
+  <tr>      
+    <td class="right">
+      Subtotal:
+    </td>
+    <td>
+      {{ invoice.subtotal}}
+    </td>
+  </tr>
+  <tr>
+    <td class="right">
+      Tax:
+    </td>
+    <td>
+      {{ invoice.tax}}
+    </td>
+  </tr>
+  <tr class="bold">
+    <td class="right">
+      Total due:
+    </td>
+    <td>
+      US${{ invoice.amount_due}}
+    </td>
+  </tr>
+</table>
+<div class="center">
+  {{ pay_button }}
+  <p>
+  Payment will be completed through PayPal
+  </p>
+</div>
+{% endblock %}

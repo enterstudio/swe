@@ -1,8 +1,10 @@
 from django import forms
+from django.conf import settings
 from django.contrib.auth.models import User
+from django.template.defaultfilters import filesizeformat
 from django.utils.safestring import mark_safe
 from swe.models import SubjectList, Subject, ServiceList, ServiceType, WordCountRange, ManuscriptOrder
- 
+
 class RegisterForm(forms.Form):
     first_name = forms.CharField(label='First Name',
                             max_length=30,
@@ -81,9 +83,25 @@ class UploadManuscriptForm(forms.Form):
         choices=ServiceList.objects.get(is_active=True).get_wordcountrange_choicelist(),
         )
     manuscript_file = forms.FileField(label='Select your manuscript file')
+    def clean_manuscript_file(self):
+        content = self.cleaned_data['manuscript_file']
+        content_type = content.content_type #.split('/')[0]
+        if True: #content_type in settings.CONTENT_TYPES:
+            if content._size > int(settings.MAX_UPLOAD_SIZE):
+                raise forms.ValidationError(
+                    u'Please keep file size under %s. Current file size is %s. You may need to remove images to reduce the file size. ' % (
+                        filesizeformat(settings.MAX_UPLOAD_SIZE), filesizeformat(content._size)))
+        else:
+            raise forms.ValidationError(u'File type %s is not supported' % content_type)
+        return content
+
 
 class SelectServiceForm(forms.Form):
+    order_pk = None
+    step = forms.IntegerField(widget = forms.widgets.HiddenInput(), initial=2)
+    order = forms.IntegerField(widget = forms.widgets.HiddenInput())
     servicetype = forms.ChoiceField(label='Type of service')
+    word_count_exact = forms.IntegerField(label = 'Number of words in the manuscript (excluding references)')
     def __init__(self, *args, **kwargs):
         # Order PK must be defined either in kwargs or POST data
         try:
@@ -92,17 +110,29 @@ class SelectServiceForm(forms.Form):
         except KeyError:
             order_pk = None
         super(SelectServiceForm, self).__init__(*args, **kwargs)
-        self.fields['step'] = forms.IntegerField(widget = forms.widgets.HiddenInput(), initial=2)
         if order_pk == None:
             try:
                 order_pk = self.data['order']
             except KeyError:
                 raise Exception('Order number is not available.')
-        self.fields['order'] = forms.IntegerField(widget = forms.widgets.HiddenInput(), initial=order_pk)
-        self.fields['servicetype'].choices = ManuscriptOrder.objects.get(pk=order_pk).wordcountrange.get_pricepoint_choicelist()
-
-class SelectServiceAndExactWordCountForm(SelectServiceForm):
-    def __init__(self, *args, **kwargs):
-        super(SelectServiceAndExactWordCountForm, self).__init__(*args, **kwargs)
-        self.fields['step'] = forms.IntegerField(widget = forms.widgets.HiddenInput(), initial=3)
-        self.fields['word_count_exact'] = forms.IntegerField(label = 'Number of words in the manuscript (excluding references)')
+        self.fields['order'].initial = order_pk
+        self.order_pk = order_pk
+        manuscriptorder = ManuscriptOrder.objects.get(pk=self.order_pk)
+        self.fields['servicetype'].choices = manuscriptorder.wordcountrange.get_pricepoint_choicelist()
+        if manuscriptorder.wordcountrange.max_words is not None:
+            # A definite word count range is already specified. Drop the field.
+            del(self.fields['word_count_exact'])
+            
+    def clean_word_count_exact(self):
+        manuscriptorder = ManuscriptOrder.objects.get(pk=self.order_pk)
+        maximum_allowed = 1000000
+        words = self.cleaned_data['word_count_exact']
+        if manuscriptorder.wordcountrange.min_words is not None:
+            if words < manuscriptorder.wordcountrange.min_words:            
+                raise forms.ValidationError("This word count is not in the selected range.")
+        if manuscriptorder.wordcountrange.max_words is not None:
+            if words > manuscriptorder.wordcountrange.max_words:            
+                raise forms.ValidationError("This word count is not in the selected range.")
+        if words > maximum_allowed:
+            raise forms.ValidationError("Please contact support submit a document of this length.")
+        return words

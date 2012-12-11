@@ -5,9 +5,10 @@ import uuid
 from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
+from paypal.standard.ipn.signals import payment_was_successful
 
 
-# <Helpers>
+# Helpers
 def get_file_path(instance, oldfilename):
     ext = oldfilename.split('.')[-1]
     shortname = '.'.join(oldfilename.split('.')[0:-1])
@@ -15,8 +16,18 @@ def get_file_path(instance, oldfilename):
     path = strftime('%Y/%m/%d',gmtime())
     return os.path.join('manuscripts', path, newfilename)
 
-# </Helpers>
 
+# Signal handlers
+def verify_and_process_payment(sender, **kwargs):
+    ipn_obj = sender
+    import pdb; pdb.set_trace()
+    # Undertake some action depending upon `ipn_obj`.
+    if ipn_obj.custom == "Upgrade all users!":
+        Users.objects.update(paid=True)        
+payment_was_successful.connect(verify_and_process_payment)
+
+
+# Models
 class UserProfile(models.Model):
     user = models.OneToOneField(User)
     activation_key = models.CharField(max_length=40)
