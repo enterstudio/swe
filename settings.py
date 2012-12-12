@@ -83,22 +83,8 @@ else:
     AWS_ACCESS_KEY_ID = os.environ['AWS_ACCESS_KEY_ID']
     AWS_SECRET_ACCESS_KEY = os.environ['AWS_SECRET_ACCESS_KEY']
     AWS_STORAGE_BUCKET_NAME = os.environ['S3_BUCKET_NAME']
-#    AWS_LOCATION = 'static'
     STATIC_URL = 'https://'+AWS_STORAGE_BUCKET_NAME+'.s3.amazonaws.com/'
     STATICFILES_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
-#    MEDIA_URL = 'https://'+AWS_STORAGE_BUCKET_NAME+'.s3.amazonaws.com/'
-
-#    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
-#    STATICFILES_STORAGE = 'swe.storage.S3StaticStorage'
-#    THUMBNAIL_DEFAULT_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
-#    AWS_ACCESS_KEY_ID = os.environ['AWS_ACCESS_KEY_ID']
-#    AWS_SECRET_ACCESS_KEY = os.environ['AWS_SECRET_ACCESS_KEY']
-#    AWS_STORAGE_BUCKET_NAME = os.environ['S3_STORAGE_BUCKET_NAME']
-#    AWS_STATIC_BUCKET_NAME = os.environ['S3_STATIC_BUCKET_NAME']
-#    AWS_S3_CUSTOM_DOMAIN = AWS_STORAGE_BUCKET_NAME
-#    AWS_STATIC_CUSTOM_DOMAIN = AWS_STATIC_BUCKET_NAME
-#    STATIC_URL = 'http://%s/' % AWS_STATIC_BUCKET_NAME
-#    MEDIA_URL = 'https://%s/' % AWS_STORAGE_BUCKET_NAME
 
 try:
     GOOGLE_TRACKING_ID=os.environ['GOOGLE_TRACKING_ID']
@@ -176,27 +162,27 @@ INSTALLED_APPS = (
 # the site admins on every HTTP 500 error when DEBUG=False.
 # See http://docs.djangoproject.com/en/dev/topics/logging for
 # more details on how to customize your logging configuration.
-#LOGGING = {
-#    'version': 1,
-#    'disable_existing_loggers': False,
-#    'filters': {
-#        'require_debug_false': {
-#            '()': 'django.utils.log.RequireDebugFalse'
-#        }
-#    },
-#    'handlers': {
-#        'mail_admins': {
-#            'level': 'ERROR',
-#            'filters': ['require_debug_false'],
-#            'class': 'django.utils.log.AdminEmailHandler'
-#        }
-#    },
-#    'loggers': {
-#        'django.request': {
-#            'handlers': ['mail_admins'],
-#            'level': 'ERROR',
-#            'propagate': True,
-#        },
-#    }
-#}
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'filters': {
+        'require_debug_false': {
+            '()': 'django.utils.log.RequireDebugFalse'
+        }
+    },
+    'handlers': {
+        'mail_admins': {
+            'level': 'ERROR',
+            'filters': ['require_debug_false'],
+            'class': 'django.utils.log.AdminEmailHandler'
+        }
+    },
+    'loggers': {
+        'django.request': {
+            'handlers': ['mail_admins'],
+            'level': 'ERROR',
+            'propagate': True,
+        },
+    }
+}
 

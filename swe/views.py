@@ -136,7 +136,9 @@ def order(request):
                 price_full = m.pricepoint.dollars
             p = models.CustomerPayment(
                 manuscriptorder=m,
+                is_payment_complete=False,
                 price_full=price_full,
+                price_charged=price_full,
                 )
             p.save()
 

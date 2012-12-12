@@ -1,4 +1,5 @@
 from datetime import datetime
+import logging
 import os
 from time import strftime, gmtime
 import uuid
@@ -20,10 +21,9 @@ def get_file_path(instance, oldfilename):
 # Signal handlers
 def verify_and_process_payment(sender, **kwargs):
     ipn_obj = sender
-    import pdb; pdb.set_trace()
     # Undertake some action depending upon `ipn_obj`.
-    if ipn_obj.custom == "Upgrade all users!":
-        Users.objects.update(paid=True)        
+    logging.info("Processing IPN in SWE")
+    logging.info(print(ipn_ob))
 payment_was_successful.connect(verify_and_process_payment)
 
 
@@ -187,10 +187,12 @@ class ManuscriptOrder(models.Model):
 
 class CustomerPayment(models.Model):
     coupons = models.ManyToManyField(Coupon)
+    is_payment_complete = models.BooleanField()
     manuscriptorder = models.ForeignKey(ManuscriptOrder)
     paypal_ipn_id = models.IntegerField(null=True)
     invoice_id = models.IntegerField(null=True)
     price_full = models.DecimalField(null=True, max_digits=7, decimal_places=2)
+    price_charged = models.DecimalField(null=True, max_digits=7, decimal_places=2)
     price_paid = models.DecimalField(null=True, max_digits=7, decimal_places=2)
     def get_amount_to_pay(self):
         amount_to_pay = self.price_full
@@ -200,9 +202,10 @@ class CustomerPayment(models.Model):
             raise Exception('Payment amount is not defined.')
         return "%.2f" % amount_to_pay
     def get_invoice_id_and_save(self):
-        offset = 24269
-        self.invoice_id = self.pk + offset
-        self.save()
+        if self.invoice_id == None:
+            offset = 24269
+            self.invoice_id = self.pk + offset
+            self.save()
         return self.invoice_id
 
 
