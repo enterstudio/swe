@@ -25,7 +25,7 @@ def verify_and_process_payment(sender, **kwargs):
     fields = ['payment_status', 'invoice',]
     logging.warning("Processing IPN in SWE")
     for field in fields:
-        logging.warning(field +': '+ipn_obj[field])
+        logging.warning(field +': '+ipn_obj.field)
 payment_was_successful.connect(verify_and_process_payment)
 
 
