@@ -22,25 +22,11 @@ def get_file_path(instance, oldfilename):
 def verify_and_process_payment(sender, **kwargs):
     ipn_obj = sender
     # Undertake some action depending upon `ipn_obj`.
-    fields = ['address_city', 'address_country', 'address_country_code', 'address_name', 'address_state', 'address_status', 'address_street', 
-              'address_zip', 'amount', 'amount1', 'amount2', 'amount3', 'amount_per_cycle', 'auction_buyer_id', 'auction_closing_date', 
-              'auction_multi_item', 'auth_amount', 'auth_exp', 'auth_id', 'auth_status', 'business', 'case_creation_date', 'case_id', 'case_type', 
-              'charset', 'clean', 'clean_fields', 'contact_phone', 'created_at', 'currency_code', 'custom', 'date_error_message', 'delete', 
-              'exchange_rate', 'first_name', 'flag', 'flag_code', 'flag_info', 'for_auction', 'format', 'from_view', 'full_clean', 'get_endpoint', 
-              'get_next_by_created_at', 'get_next_by_updated_at', 'get_previous_by_created_at', 'get_previous_by_updated_at', 'handling_amount', 
-              'id', 'initial_payment_amount', 'initialize', 'invoice', 'ipaddress', 'is_recurring', 'is_recurring_cancel', 'is_recurring_create', 
-              'is_recurring_failed', 'is_recurring_payment', 'is_recurring_skipped', 'is_subscription_cancellation', 'is_subscription_end_of_term', 
-              'is_subscription_modified', 'is_subscription_signup', 'is_transaction', 'item_name', 'item_number', 'last_name', 'mc_amount1', 
-              'mc_amount2', 'mc_amount3', 'mc_currency', 'mc_fee', 'mc_gross', 'mc_handling', 'mc_shipping', 'memo', 'next_payment_date', 
-              'notify_version', 'num_cart_items', 'objects', 'option_name1', 'option_name2', 'outstanding_balance', 'parent_txn_id', 'password', 
-              'payer_business_name', 'payer_email', 'payer_id', 'payer_status', 'payment_cycle', 'payment_date', 'payment_gross', 'payment_status', 
-              'payment_type', 'pending_reason', 'period1', 'period2', 'period3', 'period_type', 'pk', 'prepare_database_save', 'product_name', 
-              'product_type', 'profile_status', 'protection_eligibility', 'quantity', 'query', 'reason_code', 'reattempt', 'receipt_id', 
-              'receiver_email', 'receiver_id', 'recur_times', 'recurring', 'recurring_payment_id', 'remaining_settle', 'residence_country', 
-              'response', 'retry_at', 'rp_invoice_id', 'save', 'save_base', 'send_signals', 'serializable_value', 'set_flag', 'settle_amount', 
-              'settle_currency', 'shipping', 'shipping_method', 'subscr_date', 'subscr_effective', 'subscr_id', 'tax', 'test_ipn', 'time_created', 
-              'transaction_entity', 'transaction_subject', 'txn_id', 'txn_type', 'unique_error_message', 'updated_at', 'username', 'validate_unique', 
-              'verify', 'verify_secret', 'verify_sign']
+    fields = ['amount', 'amount1', 'amount2', 'amount3', 'auth_amount', 'auth_exp', 'auth_id', 'auth_status', 'case_id', 'case_type', 
+              'contact_phone', 'created_at', 'currency_code', 'custom', 'id', 'initial_payment_amount', 'initialize', 'invoice', 'ipaddress',  
+              'item_name', 'item_number', 'payer_business_name', 'payer_email', 'payer_id', 'payer_status', 'payment_gross', 'payment_status', 
+              'payment_type', 'pk', 'receipt_id', 'receiver_email', 'receiver_id', 'username'
+              ]
     logging.warning("Processing IPN in SWE")
     for field in fields:
         logging.warning(field +': '+ipn_obj[field])
