@@ -22,9 +22,7 @@ def get_file_path(instance, oldfilename):
 def verify_and_process_payment(sender, **kwargs):
     ipn_obj = sender
     # Undertake some action depending upon `ipn_obj`.
-    fields = ['auth_amount', 'auth_exp', 'auth_id', 'auth_status', 'case_id', 'id', 'initial_payment_amount', 'invoice', 'item_name', 'item_number', 
-              'payer_email', 'payer_id', 'payer_status', 'payment_gross', 'payment_status', 'pk', 'receipt_id', 'receiver_id', 'username'
-              ]
+    fields = ['payment_status', 'invoice',]
     logging.warning("Processing IPN in SWE")
     for field in fields:
         logging.warning(field +': '+ipn_obj[field])
