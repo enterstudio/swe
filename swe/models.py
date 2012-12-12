@@ -23,7 +23,7 @@ def verify_and_process_payment(sender, **kwargs):
     ipn_obj = sender
     # Undertake some action depending upon `ipn_obj`.
     logging.info("Processing IPN in SWE")
-    logging.info(print(ipn_ob))
+    logging.info(ipn_ob)
 payment_was_successful.connect(verify_and_process_payment)
 
 
