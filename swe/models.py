@@ -21,17 +21,11 @@ def get_file_path(instance, oldfilename):
 # Signal handlers
 def verify_and_process_payment(sender, **kwargs):
     ipn_obj = sender
-    # Undertake some action depending upon `ipn_obj`.
-    fields = ['payment_status', 'invoice',]
-    logging.warning("Processing IPN in SWE")
-    logging.warning('invoice' +': '+ipn_obj.invoice)
-    logging.warning('payment_status' +': '+ipn_obj.payment_status)
-                
+    invoice = ipn_obj.invoice
+    p = CustomerPayement.objects.get(invoice=invoice)
+    p.is_payment_complete = True
+    p.save()
 payment_was_successful.connect(verify_and_process_payment)
-
-
-
-
 
 
 # Models
