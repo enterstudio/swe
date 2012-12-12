@@ -22,8 +22,8 @@ def get_file_path(instance, oldfilename):
 def verify_and_process_payment(sender, **kwargs):
     ipn_obj = sender
     # Undertake some action depending upon `ipn_obj`.
-    logging.info("Processing IPN in SWE")
-    logging.info(ipn_ob)
+    logging.warning("Processing IPN in SWE")
+    logging.warning(ipn_ob)
 payment_was_successful.connect(verify_and_process_payment)
 
 

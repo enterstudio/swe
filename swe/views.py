@@ -24,7 +24,6 @@ from swe.messagecatalog import MessageCatalog
 
 
 def home(request):
-    # If logged in, add MyManuscripts to Menu
     t = loader.get_template('home.html')
     c = RequestGlobalContext(request, {})
     return HttpResponse(t.render(c))
