@@ -21,7 +21,7 @@ from swe.context import RequestGlobalContext
 from swe import forms
 from swe import models
 from swe.messagecatalog import MessageCatalog
-
+from paypal.standard.ipn.signals import payment_was_successful
 
 def home(request):
     t = loader.get_template('home.html')
@@ -115,72 +115,7 @@ def account(request):
     return HttpResponse(t.render(c))
 
 
-def order(request):    
-    def process_form_2or3(request, form):
-        if form.is_valid():
-            new_data=form.cleaned_data;
-            m = models.ManuscriptOrder.objects.get(pk=int(new_data[u'order']))
-            m.pricepoint = models.PricePoint.objects.get(pk=int(new_data[u'servicetype']))
-            m.servicetype = m.pricepoint.servicetype
-            m.datetime_submitted=datetime.datetime.utcnow().replace(tzinfo=utc)
-            m.datetime_due = datetime.datetime.utcnow().replace(tzinfo=utc) + datetime.timedelta(m.servicetype.hours_until_due/24)
-            try:
-                m.word_count_exact = new_data[u'word_count_exact']
-            except KeyError:
-                m.word_count_exact = None
-            m.save()
-            if m.pricepoint.is_price_per_word:
-                price_full = m.pricepoint.dollars_per_word * m.word_count_exact
-            else:
-                price_full = m.pricepoint.dollars
-            p = models.CustomerPayment(
-                manuscriptorder=m,
-                is_payment_complete=False,
-                price_full=price_full,
-                price_charged=price_full,
-                )
-            p.save()
-
-            if m.word_count_exact is not None:
-                word_count_text = str(m.word_count_exact)+" words"
-            else:
-                word_count_text = m.wordcountrange.display_text()
-
-            description = "Manuscript editing, "+word_count_text+", "+m.servicetype.display_text
-            invoice = {
-                'rows': [
-                    {'description': description, 'amount': p.get_amount_to_pay()},
-                    ],
-                'subtotal': p.get_amount_to_pay(),
-                'tax': '0.00',
-                'amount_due': p.get_amount_to_pay(),
-                'invoice_id': p.get_invoice_id_and_save(),
-                }
-            context = {'invoice': invoice}
-            #Render payment form
-            paypal_dict = {
-                "business": settings.PAYPAL_RECEIVER_EMAIL,
-                "amount": invoice['amount_due'],
-                "item_name": description,
-                "invoice": invoice['invoice_id'],
-                "notify_url": "%s%s" % (settings.ROOT_URL, reverse('paypal-ipn')),
-                "return_url": "%s%s" % (settings.ROOT_URL, 'paymentreceived/'),
-                "cancel_return": "%s%s" % (settings.ROOT_URL, 'paymentcanceled/'),
-                }
-            form = PayPalPaymentsForm(initial=paypal_dict)
-            if settings.RACK_ENV=='production':
-                context["pay_button"] = form.render()
-            else:
-                context["pay_button"] = form.sandbox()
-            context = RequestGlobalContext(request, context)
-            return render_to_response("order/submit_payment.html", context)
-
-        else: #form invalid
-            messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
-            t = loader.get_template('order/form2or3.html')
-            c = RequestGlobalContext(request, {'form': form})
-            return HttpResponse(t.render(c))
-
+def order(request):
     if settings.BLOCK_SERVICE:
         return HttpResponseRedirect('/comebacksoon/')
     if not request.user.is_authenticated():
@@ -214,7 +149,7 @@ def order(request):
                 m.current_document_version = models.Document.objects.get(id=d.document_ptr_id)
                 m.save()
                 nextform = forms.SelectServiceForm(order_pk=m.pk)
-                t = loader.get_template('order/form2or3.html')
+                t = loader.get_template('order/form2.html')
                 c = RequestGlobalContext(request, {'form': nextform})
                 return HttpResponse(t.render(c))
             else: #form1 invalid
@@ -224,7 +159,62 @@ def order(request):
                 return HttpResponse(t.render(c))
         elif (request.POST[u'step']==u'2'): #Step 2 was submitted
             form = forms.SelectServiceForm(request.POST)
-            return process_form_2or3(request, form)
+            if form.is_valid():
+                new_data=form.cleaned_data;
+                m = models.ManuscriptOrder.objects.get(pk=int(new_data[u'order']))
+                m.pricepoint = models.PricePoint.objects.get(pk=int(new_data[u'servicetype']))
+                m.servicetype = m.pricepoint.servicetype
+                m.datetime_submitted=datetime.datetime.utcnow().replace(tzinfo=utc)
+                m.datetime_due = datetime.datetime.utcnow().replace(tzinfo=utc) + datetime.timedelta(m.servicetype.hours_until_due/24)
+                try:
+                    m.word_count_exact = new_data[u'word_count_exact']
+                except KeyError:
+                    m.word_count_exact = None
+                m.save()
+                if m.pricepoint.is_price_per_word:
+                    price_full = m.pricepoint.dollars_per_word * m.word_count_exact
+                else:
+                    price_full = m.pricepoint.dollars
+                p = models.CustomerPayment(
+                    manuscriptorder=m,
+                    is_payment_complete=False,
+                    price_full=price_full,
+                    price_charged=price_full,
+                    )
+                p.save()
+                invoice = {
+                    'rows': [
+                        {'description': m.get_service_description(), 
+                         'amount': p.get_amount_to_pay()},
+                        ],
+                    'subtotal': p.get_amount_to_pay(),
+                    'tax': '0.00',
+                    'amount_due': p.get_amount_to_pay(),
+                    'invoice_id': p.get_invoice_id_and_save(),
+                    }
+                context = {'invoice': invoice}
+                #Render payment form
+                paypal_dict = {
+                    "business": settings.PAYPAL_RECEIVER_EMAIL,
+                    "amount": invoice['amount_due'],
+                    "item_name": m.get_service_description(),
+                    "invoice": invoice['invoice_id'],
+                    "notify_url": "%s%s" % (settings.ROOT_URL, reverse('paypal-ipn')),
+                    "return_url": "%s%s" % (settings.ROOT_URL, 'paymentreceived/'),
+                    "cancel_return": "%s%s" % (settings.ROOT_URL, 'paymentcanceled/'),
+                    }
+                form = PayPalPaymentsForm(initial=paypal_dict)
+                if settings.RACK_ENV=='production':
+                    context["pay_button"] = form.render()
+                else:
+                    context["pay_button"] = form.sandbox()
+                context = RequestGlobalContext(request, context)
+                return render_to_response("order/submit_payment.html", context)
+            else: #form invalid
+                messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
+                t = loader.get_template('order/form2.html')
+                c = RequestGlobalContext(request, {'form': form})
+                return HttpResponse(t.render(c))
         else:
             raise Exception('No valid step number was specified')
     else: # GET request
@@ -472,3 +462,25 @@ def ipn(request, item_check_callable=None):
     ipn_obj.save()
 
     return HttpResponse("OKAY")
+
+
+# Signal handler
+def verify_and_process_payment(sender, **kwargs):
+    ipn_obj = sender
+    invoice = ipn_obj.invoice
+    payment = models.CustomerPayement.objects.get(invoice=invoice)
+    payment.is_payment_complete = True
+    payment.save()
+    order = payment.ManuscriptOrder
+    email_subject = 'Thank you! Payment to Science Writing Experts is complete'
+    t = loader.get_template('payment_received.txt')
+    c = Context({'customer_service_name': settings.CUSTOMER_SERVICE_NAME,
+                 'customer_service_title': settings.CUSTOMER_SERVICE_TITLE,
+                 'invoice': invoice,
+                 'amount_paid': payment.get_amount_to_pay(),
+                 'service_description': order.get_service_description(),
+                 })
+    email_body = t.render(c)
+    send_mail(email_subject, email_body, 'support@sciencewritingexperts.com', [new_user.email], fail_silently=False)
+    
+payment_was_successful.connect(verify_and_process_payment)

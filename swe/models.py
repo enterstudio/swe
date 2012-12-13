@@ -6,7 +6,6 @@ import uuid
 from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
-from paypal.standard.ipn.signals import payment_was_successful
 
 
 # Helpers
@@ -16,16 +15,6 @@ def get_file_path(instance, oldfilename):
     newfilename = "%s.%s.%s" % (shortname, uuid.uuid4(), ext)
     path = strftime('%Y/%m/%d',gmtime())
     return os.path.join('manuscripts', path, newfilename)
-
-
-# Signal handlers
-def verify_and_process_payment(sender, **kwargs):
-    ipn_obj = sender
-    invoice = ipn_obj.invoice
-    p = CustomerPayement.objects.get(invoice=invoice)
-    p.is_payment_complete = True
-    p.save()
-payment_was_successful.connect(verify_and_process_payment)
 
 
 # Models
@@ -182,6 +171,13 @@ class ManuscriptOrder(models.Model):
     was_customer_notified = models.BooleanField()
     did_customer_retrieve = models.BooleanField()
     managing_editor = models.ForeignKey(User, related_name='manuscriptorder_managed_set', null=True, blank=True)
+    def get_service_description(self):
+        if self.word_count_exact is not None:
+            word_count_text = str(self.word_count_exact)+" words"
+        else:
+            word_count_text = self.wordcountrange.display_text()
+        return "Editing services, "+word_count_text+", "+self.servicetype.display_text
+
     def __unicode__(self):
         return self.title
 
