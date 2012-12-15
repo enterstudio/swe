@@ -7,7 +7,7 @@ from django.conf import settings
 from django.contrib import messages, auth
 from django.contrib.auth.models import User
 from django.core.files.storage import FileSystemStorage
-from django.core.mail import send_mail
+from django.core.mail import EmailMessage
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render_to_response, get_object_or_404
@@ -124,7 +124,7 @@ def order(request):
         try:
             if models.ManuscriptOrder.objects.get(pk=request.POST[u'order']).customer != request.user:
                 # Not your manuscript. Abort!
-                messages.add_message(request, messages.ERROR, 'This is not allowed. Please contact support.')
+                messages.add_message(request, messages.ERROR, 'There was an error processing your order. Please contact support.')
                 return HttpResponseRedirect('/home/')
         except KeyError:
             pass
@@ -192,22 +192,31 @@ def order(request):
                     'amount_due': p.get_amount_to_pay(),
                     'invoice_id': p.get_invoice_id_and_save(),
                     }
-                context = {'invoice': invoice}
+                context = {}
+                context['invoice'] = invoice
                 #Render payment form
-                paypal_dict = {
-                    "business": settings.PAYPAL_RECEIVER_EMAIL,
-                    "amount": invoice['amount_due'],
-                    "item_name": m.get_service_description(),
-                    "invoice": invoice['invoice_id'],
-                    "notify_url": "%s%s" % (settings.ROOT_URL, reverse('paypal-ipn')),
-                    "return_url": "%s%s" % (settings.ROOT_URL, 'paymentreceived/'),
-                    "cancel_return": "%s%s" % (settings.ROOT_URL, 'paymentcanceled/'),
-                    }
-                form = PayPalPaymentsForm(initial=paypal_dict)
-                if settings.RACK_ENV=='production':
-                    context["pay_button"] = form.render()
+                if float(p.get_amount_to_pay()) < 0.01: # Free order, no payment due
+                    form = forms.SubmitOrderFreeForm(order_pk=m.pk, invoice_pk=invoice['invoice_id'])
+                    t = loader.get_template('order/submit_order_free.html')
+                    c = RequestGlobalContext(request, { 'form': form })
+                    context["pay_button"] = t.render(c)
+                    context["pay_button_message"] = ''
                 else:
-                    context["pay_button"] = form.sandbox()
+                    paypal_dict = {
+                        "business": settings.PAYPAL_RECEIVER_EMAIL,
+                        "amount": invoice['amount_due'],
+                        "item_name": m.get_service_description(),
+                        "invoice": invoice['invoice_id'],
+                        "notify_url": "%s%s" % (settings.ROOT_URL, reverse('paypal-ipn')),
+                        "return_url": "%s%s" % (settings.ROOT_URL, 'paymentreceived/'),
+                        "cancel_return": "%s%s" % (settings.ROOT_URL, 'paymentcanceled/'),
+                        }
+                    form = PayPalPaymentsForm(initial=paypal_dict)
+                    if settings.RACK_ENV=='production':
+                        context["pay_button"] = form.render()
+                    else:
+                        context["pay_button"] = form.sandbox()
+                    context["pay_button_message"] = 'Payment will be completed through PayPal'
                 context = RequestGlobalContext(request, context)
                 return render_to_response("order/submit_payment.html", context)
             else: #form invalid
@@ -215,6 +224,19 @@ def order(request):
                 t = loader.get_template('order/form2.html')
                 c = RequestGlobalContext(request, {'form': form})
                 return HttpResponse(t.render(c))
+        elif (request.POST[u'step']==u'3'): #Step 3 was submitted
+            form = forms.SubmitOrderFreeForm(request.POST)
+            if form.is_valid():
+                new_data = form.cleaned_data
+                invoice = new_data['invoice']
+                if models.CustomerPayment.objects.get(invoice_id=invoice).manuscriptorder.customer == request.user:
+                    acknowledge_payment_received(invoice)
+                    messages.add_message(request, messages.SUCCESS, 'Your order has been submitted.')
+                    return HttpResponseRedirect('/home/')
+                else:
+                    raise Exception('There was an error processing the order. Please contact support.')
+            else:
+                raise Exception('There was an error processing the order. Please contact support.')
         else:
             raise Exception('No valid step number was specified')
     else: # GET request
@@ -266,7 +288,7 @@ def register(request):
                                       active_email_confirmed=False,
                                       )
             # Send an email with the confirmation link
-            email_subject = 'Your new Science Writing Experts account confirmation'
+            email_subject = 'Please confirm your account with Science Writing Experts'
             t = loader.get_template('activation_request.txt')
             c = Context({'activation_key': new_profile.activation_key,
                          'customer_service_name': settings.CUSTOMER_SERVICE_NAME,
@@ -274,7 +296,12 @@ def register(request):
                          'root_url': settings.ROOT_URL,
                          })
             email_body = t.render(c)
-            send_mail(email_subject, email_body, 'support@sciencewritingexperts.com', [new_user.email], fail_silently=False)
+            mail = EmailMessage(subject=email_subject, 
+                         body=email_body, 
+                         from_email='support@sciencewritingexperts.com', 
+                         to=[new_user.email], 
+                         bcc=['support@sciencewritingexperts.com'])
+            mail.send()
             new_profile.save()
             messages.add_message(request,messages.SUCCESS,
                 'An activation key has been sent to your email address.')
@@ -356,7 +383,7 @@ def activationrequest(request):
             profile.activation_key = activation_key
             profile.key_expires = key_expires
             # Send an email with the confirmation link
-            email_subject = 'Your new Science Writing Experts account confirmation'
+            email_subject = 'Please confirm your account with Science Writing Experts'
             t = loader.get_template('activationrequest.txt')
             c = Context({'activation_key': profile.activation_key,
                          'customer_service_name': settings.CUSTOMER_SERVICE_NAME,
@@ -364,7 +391,12 @@ def activationrequest(request):
                          'root_url': settings.ROOT_URL,
                          })
             email_body = t.render(c)
-            send_mail(email_subject, email_body, 'support@sciencewritingexperts.com', [user.email], fail_silently=False)
+            mail = EmailMessage(subject=email_subject, 
+                         body=email_body, 
+                         from_email='support@sciencewritingexperts.com', 
+                         to=[user.email], 
+                         bcc=['support@sciencewritingexperts.com'])
+            mail.send()
             profile.save()
             messages.add_message(request,messages.SUCCESS,'A new activation key has been sent to your email address.')
             return HttpResponseRedirect('/confirm/')
@@ -468,11 +500,17 @@ def ipn(request, item_check_callable=None):
 def verify_and_process_payment(sender, **kwargs):
     ipn_obj = sender
     invoice = ipn_obj.invoice
-    payment = models.CustomerPayement.objects.get(invoice=invoice)
+    acknowledge_payment_received(invoice)
+payment_was_successful.connect(verify_and_process_payment)
+
+
+def acknowledge_payment_received(invoice):
+    payment = models.CustomerPayment.objects.get(invoice_id=invoice)
     payment.is_payment_complete = True
     payment.save()
-    order = payment.ManuscriptOrder
-    email_subject = 'Thank you! Payment to Science Writing Experts is complete'
+    order = payment.manuscriptorder
+    user = order.customer
+    email_subject = 'Thank you! Your order to Science Writing Experts is complete'
     t = loader.get_template('payment_received.txt')
     c = Context({'customer_service_name': settings.CUSTOMER_SERVICE_NAME,
                  'customer_service_title': settings.CUSTOMER_SERVICE_TITLE,
@@ -481,6 +519,9 @@ def verify_and_process_payment(sender, **kwargs):
                  'service_description': order.get_service_description(),
                  })
     email_body = t.render(c)
-    send_mail(email_subject, email_body, 'support@sciencewritingexperts.com', [new_user.email], fail_silently=False)
-    
-payment_was_successful.connect(verify_and_process_payment)
+    mail = EmailMessage(subject=email_subject, 
+                        body=email_body, 
+                        from_email='support@sciencewritingexperts.com', 
+                        to=[user.email], 
+                        bcc=['support@sciencewritingexperts.com'])
+    mail.send()

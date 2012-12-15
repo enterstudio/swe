@@ -209,7 +209,7 @@ class CustomerPayment(models.Model):
 class OriginalDocument(Document):
     manuscriptorder = models.OneToOneField(ManuscriptOrder)
     def __unicode__(self):
-        return self.manuscript_order.title
+        return self.manuscriptorder.title
 
 
 class EditedDocument(Document):

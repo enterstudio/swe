@@ -1,0 +1,19 @@
+Thank you! 
+
+Your payment to Science Writing Experts was received.
+
+Invoice # {{ invoice }}
+ 
+{{ service_description }}
+ 
+Payment received: ${{ amount_paid }} USD
+
+We will notify you by email as soon as we have finished work on your manuscript.
+
+If you have any questions, you are welcome to reply to this email.
+
+Sincerely,
+
+{{ customer_service_name }}
+ 
+{{ customer_service_title }}

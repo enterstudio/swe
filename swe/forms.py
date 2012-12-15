@@ -136,3 +136,34 @@ class SelectServiceForm(forms.Form):
         if words > maximum_allowed:
             raise forms.ValidationError("Please contact support submit a document of this length.")
         return words
+
+class SubmitOrderFreeForm(forms.Form):
+    step = forms.IntegerField(widget = forms.widgets.HiddenInput(), initial=3)
+    order = forms.IntegerField(widget = forms.widgets.HiddenInput())
+    invoice = forms.IntegerField(widget = forms.widgets.HiddenInput())
+    def __init__(self, *args, **kwargs):
+        # Order PK and Invoice PK must be defined either in kwargs or POST data
+        try:
+            order_pk = kwargs['order_pk']
+            del[kwargs['order_pk']]
+        except KeyError:
+            order_pk = None
+        try:
+            invoice_pk = kwargs['invoice_pk']
+            del[kwargs['invoice_pk']]
+        except KeyError:
+            invoice_pk = None
+        super(SubmitOrderFreeForm, self).__init__(*args, **kwargs)
+        if order_pk == None:
+            try:
+                order_pk = self.data['order']
+            except KeyError:
+                raise Exception('Order number is not available.')
+        self.fields['order'].initial = order_pk
+        if invoice_pk == None:
+            try:
+                invoice_pk = self.data['invoice']
+            except KeyError:
+                raise Exception('Invoice number is not available.')
+        self.fields['invoice'].initial = invoice_pk
+
