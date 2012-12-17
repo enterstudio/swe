@@ -433,6 +433,12 @@ def contact(request):
     return HttpResponse(t.render(c))
 
 
+def passwordreset(request):
+    t = loader.get_template('password_reset.html')
+    c = RequestGlobalContext(request, {})
+    return HttpResponse(t.render(c))
+
+
 def block(request):
     t = loader.get_template('block.html')
     c = RequestGlobalContext(request,{})
