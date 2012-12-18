@@ -3,7 +3,9 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.template.defaultfilters import filesizeformat
 from django.utils.safestring import mark_safe
+from ajax_upload.widgets import AjaxClearableFileInput
 from swe.models import SubjectList, Subject, ServiceList, ServiceType, WordCountRange, ManuscriptOrder
+
 
 class RegisterForm(forms.Form):
     first_name = forms.CharField(label='First Name',
@@ -82,7 +84,7 @@ class UploadManuscriptForm(forms.Form):
         label='Word count (do not include references)',
         choices=ServiceList.objects.get(is_active=True).get_wordcountrange_choicelist(),
         )
-    manuscript_file = forms.FileField(label='Select your manuscript file')
+    manuscript_file = forms.ImageField(widget=AjaxClearableFileInput())
     def clean_manuscript_file(self):
         content = self.cleaned_data['manuscript_file']
         content_type = content.content_type #.split('/')[0]

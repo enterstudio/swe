@@ -53,6 +53,7 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_URL = os.environ['ROOT_URL']
 STATICFILES_DIRS = (
     os.path.join(ROOT_DIR, 'static/'),
+    os.path.join(ROOT_DIR, 'ajax_upload/static/'),
 )
 
 STATICFILES_FINDERS = (
@@ -150,6 +151,7 @@ INSTALLED_APPS = (
     'storages',
     'paypal.standard.ipn',
     'sendgrid',
+    'ajax_upload',
     # Uncomment the next line to enable admin documentation:
     # 'django.contrib.admindocs',
     'swe',

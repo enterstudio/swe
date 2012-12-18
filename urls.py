@@ -44,6 +44,10 @@ urlpatterns += patterns('',
     url(r'^044096020admin/', include(admin.site.urls)),
     )
 
+urlpatterns += patterns('',
+    (r'^ajax-upload/', include('ajax_upload.urls')),
+)
+
 urlpatterns += staticfiles_urlpatterns()
 
 
