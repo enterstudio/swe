@@ -18,7 +18,6 @@ def add_edit_product(request, product_id=None):
             return redirect(reverse('example-edit-product', args=[product.id]))
     else:
         form = ProductForm(instance=product)
-    import pdb; pdb.set_trace()
 
     return render(request, 'example/product.html', dictionary={
         'form': form,
