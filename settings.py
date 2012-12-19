@@ -81,11 +81,11 @@ if LOCAL_STORAGE:
 
 else:
     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
-    AWS_ACCESS_KEY_ID = os.environ['AWS_ACCESS_KEY_ID']
-    AWS_SECRET_ACCESS_KEY = os.environ['AWS_SECRET_ACCESS_KEY']
+#    AWS_ACCESS_KEY_ID = os.environ['AWS_ACCESS_KEY_ID']
+#    AWS_SECRET_ACCESS_KEY = os.environ['AWS_SECRET_ACCESS_KEY']
     AWS_STORAGE_BUCKET_NAME = os.environ['S3_BUCKET_NAME']
-    MEDIA_URL = 'https://'+AWS_STORAGE_BUCKET_NAME+'.s3.amazonaws.com/'
-    STATIC_URL = 'https://'+AWS_STORAGE_BUCKET_NAME+'.s3.amazonaws.com/'
+    MEDIA_URL = 'http://'+AWS_STORAGE_BUCKET_NAME+'.s3.amazonaws.com/'
+    STATIC_URL = 'http://'+AWS_STORAGE_BUCKET_NAME+'.s3.amazonaws.com/'
     STATICFILES_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
 
 try:
