@@ -31,7 +31,7 @@ class UserProfile(models.Model):
 class Document(models.Model):
     # Has subclasses OriginalDocument and EditedDocument
     # Foreign Key defined in ManuscriptOrder
-    manuscript_file = models.FileField(upload_to=get_file_path)
+    manuscript_file = models.FileField(upload_to=get_file_path, blank=True)
     original_name = models.CharField(max_length=255)
     datetime_uploaded = models.DateTimeField()
     notes = models.CharField(max_length=1000, blank=True, null=True)
