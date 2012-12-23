@@ -1,10 +1,16 @@
+import base64
+import datetime
+import hmac
+import sha
+import simplejson
 from django import forms
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.template.defaultfilters import filesizeformat
 from django.utils.safestring import mark_safe
-from ajax_upload.widgets import AjaxClearableFileInput
-from swe.models import SubjectList, Subject, ServiceList, ServiceType, WordCountRange, ManuscriptOrder
+# TODO: remove import of individual models, move to models.Model format
+from swe.models import SubjectList, Subject, ServiceList, ServiceType, WordCountRange
+from swe import models
 
 
 class RegisterForm(forms.Form):
@@ -73,8 +79,7 @@ class ActivationRequestForm(forms.Form):
         return email
 
 
-class UploadManuscriptForm(forms.Form):
-    step = forms.IntegerField(initial=1, widget = forms.widgets.HiddenInput())
+class OrderForm(forms.Form):
     title = forms.CharField(label='Title (choose any name that helps you remember)', max_length=50, required=False)
     subject = forms.ChoiceField(
         label='Field of study', 
@@ -84,49 +89,42 @@ class UploadManuscriptForm(forms.Form):
         label='Word count (do not include references)',
         choices=ServiceList.objects.get(is_active=True).get_wordcountrange_choicelist(),
         )
-    manuscript_file = forms.ImageField(widget=AjaxClearableFileInput())
-    def clean_manuscript_file(self):
-        content = self.cleaned_data['manuscript_file']
-        content_type = content.content_type #.split('/')[0]
-        if True: #content_type in settings.CONTENT_TYPES:
-            if content._size > int(settings.MAX_UPLOAD_SIZE):
-                raise forms.ValidationError(
-                    u'Please keep file size under %s. Current file size is %s. You may need to remove images to reduce the file size. ' % (
-                        filesizeformat(settings.MAX_UPLOAD_SIZE), filesizeformat(content._size)))
-        else:
-            raise forms.ValidationError(u'File type %s is not supported' % content_type)
-        return content
+
+
+#    manuscript_file = forms.FileField()
+#    def clean_manuscript_file(self):
+#        content = self.cleaned_data['manuscript_file']
+#        content_type = content.content_type #.split('/')[0]
+#        if True: #content_type in settings.CONTENT_TYPES:
+#            if content._size > int(settings.MAX_UPLOAD_SIZE):
+#                raise forms.ValidationError(
+#                    u'Please keep file size under %s. Current file size is %s. You may need to remove images to reduce the file size. ' % (
+#                        filesizeformat(settings.MAX_UPLOAD_SIZE), filesizeformat(content._size)))
+#        else:
+#            raise forms.ValidationError(u'File type %s is not supported' % content_type)
+#        return content
 
 
 class SelectServiceForm(forms.Form):
-    order_pk = None
-    step = forms.IntegerField(widget = forms.widgets.HiddenInput(), initial=2)
-    order = forms.IntegerField(widget = forms.widgets.HiddenInput())
+    invoice_id = None
     servicetype = forms.ChoiceField(label='Type of service')
     word_count_exact = forms.IntegerField(label = 'Number of words in the manuscript (excluding references)')
     def __init__(self, *args, **kwargs):
-        # Order PK must be defined either in kwargs or POST data
+        # Invoice_id must be in kwargs
         try:
-            order_pk = kwargs['order_pk']
-            del[kwargs['order_pk']]
+            self.invoice_id = kwargs['invoice_id']
+            del[kwargs['invoice_id']]
         except KeyError:
-            order_pk = None
+            raise Exception('Missing required argument invoice_id.')
         super(SelectServiceForm, self).__init__(*args, **kwargs)
-        if order_pk == None:
-            try:
-                order_pk = self.data['order']
-            except KeyError:
-                raise Exception('Order number is not available.')
-        self.fields['order'].initial = order_pk
-        self.order_pk = order_pk
-        manuscriptorder = ManuscriptOrder.objects.get(pk=self.order_pk)
+        manuscriptorder = models.ManuscriptOrder.objects.get(invoice_id=self.invoice_id)
         self.fields['servicetype'].choices = manuscriptorder.wordcountrange.get_pricepoint_choicelist()
         if manuscriptorder.wordcountrange.max_words is not None:
             # A definite word count range is already specified. Drop the field.
             del(self.fields['word_count_exact'])
             
     def clean_word_count_exact(self):
-        manuscriptorder = ManuscriptOrder.objects.get(pk=self.order_pk)
+        manuscriptorder = models.ManuscriptOrder.objects.get(invoice_id=self.invoice_id)
         maximum_allowed = 1000000
         words = self.cleaned_data['word_count_exact']
         if manuscriptorder.wordcountrange.min_words is not None:
@@ -140,32 +138,124 @@ class SelectServiceForm(forms.Form):
         return words
 
 class SubmitOrderFreeForm(forms.Form):
-    step = forms.IntegerField(widget = forms.widgets.HiddenInput(), initial=3)
-    order = forms.IntegerField(widget = forms.widgets.HiddenInput())
-    invoice = forms.IntegerField(widget = forms.widgets.HiddenInput())
     def __init__(self, *args, **kwargs):
-        # Order PK and Invoice PK must be defined either in kwargs or POST data
-        try:
-            order_pk = kwargs['order_pk']
-            del[kwargs['order_pk']]
-        except KeyError:
-            order_pk = None
-        try:
-            invoice_pk = kwargs['invoice_pk']
-            del[kwargs['invoice_pk']]
-        except KeyError:
-            invoice_pk = None
+        # invoice_id must be defined in kwargs
         super(SubmitOrderFreeForm, self).__init__(*args, **kwargs)
-        if order_pk == None:
-            try:
-                order_pk = self.data['order']
-            except KeyError:
-                raise Exception('Order number is not available.')
-        self.fields['order'].initial = order_pk
-        if invoice_pk == None:
-            try:
-                invoice_pk = self.data['invoice']
-            except KeyError:
-                raise Exception('Invoice number is not available.')
-        self.fields['invoice'].initial = invoice_pk
 
+
+class S3UploadForm(forms.Form):
+    """
+    http://developer.amazonwebservices.com/connect/entry.jspa?externalID=1434
+
+    <input type="hidden" name="key" value="uploads/${filename}">
+    <input type="hidden" name="AWSAccessKeyId" value="YOUR_AWS_ACCESS_KEY"> 
+    <input type="hidden" name="acl" value="private"> 
+    <input type="hidden" name="success_action_redirect" value="http://localhost/">
+    <input type="hidden" name="policy" value="YOUR_POLICY_DOCUMENT_BASE64_ENCODED">
+    <input type="hidden" name="signature" value="YOUR_CALCULATED_SIGNATURE">
+    """
+    key = forms.CharField(widget = forms.HiddenInput)
+    AWSAccessKeyId = forms.CharField(widget = forms.HiddenInput)
+    acl = forms.CharField(widget = forms.HiddenInput)
+    success_action_redirect = forms.CharField(widget = forms.HiddenInput)
+    policy = forms.CharField(widget = forms.HiddenInput)
+    signature = forms.CharField(widget = forms.HiddenInput)
+    file = forms.FileField(widget = forms.ClearableFileInput(attrs={'class':'fileinput'}))
+    
+    def __init__(self, aws_access_key, aws_secret_key, bucket, key,
+                 expires_after = datetime.timedelta(days = 1),
+                 acl = 'private',
+                 success_action_redirect = None,
+                 min_size = 0,
+                 max_size = None,
+                 ):
+        self.aws_access_key = aws_access_key
+        self.aws_secret_key = aws_secret_key
+        self.bucket = bucket
+        self.key = key
+        self.expires_after = expires_after
+        self.acl = acl
+        self.success_action_redirect = success_action_redirect
+        self.min_size = min_size
+        self.max_size = max_size
+        
+        policy = base64.b64encode(self.calculate_policy())
+        signature = self.sign_policy(policy)
+        
+        initial = {
+            'key': self.key,
+            'AWSAccessKeyId': self.aws_access_key,            
+            'acl': self.acl,
+            'policy': policy,
+            'signature': signature,
+        }
+        if self.success_action_redirect:
+            initial['success_action_redirect'] = self.success_action_redirect
+        
+        super(S3UploadForm, self).__init__(initial = initial)
+        
+        if self.max_size:
+            self.fields['MAX_SIZE'] = forms.CharField(widget=forms.HiddenInput)
+            self.initial['MAX_SIZE'] = self.max_size
+        
+        # Don't show success_action_redirect if it's not being used
+        if not self.success_action_redirect:
+            del self.fields['success_action_redirect']
+
+    def add_prefix(self, field_name):
+        # Hack to use the S3 required field name
+        if field_name == 'content_type' and self.content_type:
+            field_name = 'Content-Type'
+        return super(S3UploadForm, self).add_prefix(field_name)
+
+    def as_html(self):
+        """
+        Use this instead of as_table etc, because S3 requires the file field
+        come AFTER the hidden fields, but Django's normal form display methods
+        position the visible fields BEFORE the hidden fields.
+        """
+        html = ''.join(map(unicode, self.hidden_fields()))
+        html += unicode(self['file'])
+        return html
+    
+    def as_form_html(self, prefix='', suffix=''):
+        html = """
+        <form action="%s" method="post" enctype="multipart/form-data">
+        <p>%s <input type="submit" value="Upload"></p>
+        </form>
+        """.strip() % (self.action(), self.as_html())
+        return html
+    
+    def is_multipart(self):
+        return True
+    
+    def action(self):
+        return 'https://%s.s3.amazonaws.com/' % self.bucket
+    
+    def calculate_policy(self):
+        conditions = [
+            {'bucket': self.bucket},
+            {'acl': self.acl},
+            ['starts-with', '$key', self.key.replace('${filename}', '')],
+        ]
+        if self.max_size:
+            conditions.append(
+                ['content-length-range',self.min_size,self.max_size]
+            )
+        if self.success_action_redirect:
+            conditions.append(
+                {'success_action_redirect': self.success_action_redirect},
+            )
+        
+        policy_document = {
+            "expiration": (
+                datetime.datetime.now() + self.expires_after
+            ).isoformat().split('.')[0] + 'Z',
+            "conditions": conditions,
+        }
+        return simplejson.dumps(policy_document, indent=2)
+    
+    def sign_policy(self, policy):
+        return base64.b64encode(
+            hmac.new(self.aws_secret_key, policy, sha).digest()
+        )

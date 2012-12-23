@@ -1,0 +1,25 @@
+{% extends "plain.html" %}
+{% block pageContentNoFormat %}
+<h3>Upload a file</h3>
+<div class="row">
+  <div class="span10">
+
+    <form action="https://{{ BUCKET }}.s3.amazonaws.com/" method="post" enctype="multipart/form-data">
+      <input type="hidden" name="key" value="uploads/{{ FILE_KEY }}/${filename}">
+      <input type="hidden" name="AWSAccessKeyId" value="{{ AWS_ACCESS_KEY_ID }}"> 
+      <input type="hidden" name="acl" value="private"> 
+      <input type="hidden" name="success_action_redirect" value="{{ REDIRECT }}">
+      <input type="hidden" name="policy" value="{{ POLICY }}">
+      <input type="hidden" name="signature" value="{{ SIGNATURE }}">
+      <!-- Include any additional input fields here -->
+
+      jpeg to upload to S3: 
+      <input name="file" type="file"> 
+      <br> 
+      <input type="submit" value="Upload File to S3"> 
+    </form> 
+
+  </div>
+</div>
+
+{% endblock %}

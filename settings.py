@@ -53,7 +53,6 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_URL = os.environ['ROOT_URL']
 STATICFILES_DIRS = (
     os.path.join(ROOT_DIR, 'static/'),
-    os.path.join(ROOT_DIR, 'ajax_upload/static/'),
 )
 
 STATICFILES_FINDERS = (
@@ -80,11 +79,11 @@ if LOCAL_STORAGE:
     MEDIA_ROOT = os.path.join(ROOT_DIR,'media/')
 
 else:
-    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
-#    AWS_ACCESS_KEY_ID = os.environ['AWS_ACCESS_KEY_ID']
-#    AWS_SECRET_ACCESS_KEY = os.environ['AWS_SECRET_ACCESS_KEY']
+#    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
+    AWS_ACCESS_KEY_ID = os.environ['AWS_ACCESS_KEY_ID']
+    AWS_SECRET_ACCESS_KEY = os.environ['AWS_SECRET_ACCESS_KEY']
     AWS_STORAGE_BUCKET_NAME = os.environ['S3_BUCKET_NAME']
-    MEDIA_URL = 'http://'+AWS_STORAGE_BUCKET_NAME+'.s3.amazonaws.com/'
+#    MEDIA_URL = 'http://'+AWS_STORAGE_BUCKET_NAME+'.s3.amazonaws.com/'
     STATIC_URL = 'http://'+AWS_STORAGE_BUCKET_NAME+'.s3.amazonaws.com/'
     STATICFILES_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
 
@@ -102,7 +101,7 @@ EMAIL_USE_TLS = True
 PAYPAL_RECEIVER_EMAIL = os.environ['PAYPAL_RECEIVER_EMAIL']
 
 CUSTOMER_SERVICE_NAME = "Nathan Hammond"
-CUSTOMER_SERVICE_TITLE = "Director of Customer Happiness"
+CUSTOMER_SERVICE_TITLE = "Customer Support Specialist"
 
 CONTENT_TYPES = ['text']
 # 2.5MB - 2621440; 5MB - 5242880; 10MB - 10485760; 20MB - 20971520; 50MB - 5242880
@@ -152,11 +151,9 @@ INSTALLED_APPS = (
     'storages',
     'paypal.standard.ipn',
     'sendgrid',
-    'ajax_upload',
     # Uncomment the next line to enable admin documentation:
     # 'django.contrib.admindocs',
     'swe',
-    'example',
 )
 
 

@@ -14,13 +14,16 @@ urlpatterns = patterns('swe.views',
     url(r'^prices/$', 'prices'),
     url(r'^about/$', 'about'),
     url(r'^register/$', 'register'),
-    url(r'^confirm/$', 'confirm'),
-    url(r'^confirm/(?P<activation_key>\w+)$', 'confirm'),
+    url(r'^confirm/(?P<activation_key>\w*)$', 'confirm'),
     url(r'^activationrequest/$', 'activationrequest'),
     url(r'^login/$', 'login'),
     url(r'^logout/$', 'logout'),
     url(r'^account/$', 'account'),
     url(r'^order/$', 'order'),
+    url(r'^serviceoptions/$', 'serviceoptions'),
+    url(r'^uploadmanuscript/$', 'uploadmanuscript'),
+    url(r'^awsconfirm/$', 'awsconfirm'),
+    url(r'^submit/$', 'submit'),
     url(r'^privacy/$', 'privacy'),
     url(r'^terms/$', 'terms'),
     url(r'^contact/$', 'contact'),
@@ -43,15 +46,6 @@ urlpatterns += patterns('swe.editorviews',
 urlpatterns += patterns('',
     url(r'^044096020admin/', include(admin.site.urls)),
     )
-
-urlpatterns += patterns('example.views',
-    url(r'^add/$', 'add_edit_product', name='example-add-product'),
-    url(r'^edit/(?P<product_id>\d+)/$', 'add_edit_product', name='example-edit-product'),
-)
-
-urlpatterns += patterns('',
-    (r'^ajax-upload/', include('ajax_upload.urls')),
-)
 
 urlpatterns += staticfiles_urlpatterns()
 

@@ -1,4 +1,7 @@
+import base64
 import datetime
+import hmac
+import json
 import os
 import random
 import sha
@@ -12,7 +15,7 @@ from django.core.urlresolvers import reverse
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render_to_response, get_object_or_404
 from django.template import loader, Context
-from django.utils.timezone import utc
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt 
 from django.views.decorators.http import require_POST
 from paypal.standard.forms import PayPalPaymentsForm 
@@ -118,134 +121,295 @@ def account(request):
 def order(request):
     if settings.BLOCK_SERVICE:
         return HttpResponseRedirect('/comebacksoon/')
-    if not request.user.is_authenticated():
+    elif not request.user.is_authenticated():
         return HttpResponseRedirect('/register/')
-    if request.method == 'POST':
-        try:
-            if models.ManuscriptOrder.objects.get(pk=request.POST[u'order']).customer != request.user:
-                # Not your manuscript. Abort!
-                messages.add_message(request, messages.ERROR, 'There was an error processing your order. Please contact support.')
-                return HttpResponseRedirect('/home/')
-        except KeyError:
-            pass
-        if request.POST[u'step']==u'1': #Step 1 was submitted
-            form = forms.UploadManuscriptForm(request.POST, request.FILES)
-            if form.is_valid():
-                new_data=form.cleaned_data;
-                m = models.ManuscriptOrder(
-                    title=new_data[u'title'],
-                    wordcountrange=models.WordCountRange.objects.get(pk=int(new_data[u'word_count'])),
-                    subject=models.Subject.objects.get(pk=int(new_data[u'subject'])),
-                    customer=request.user,
-                    )
-                m.save()
-                d = models.OriginalDocument(
-                    manuscriptorder = m,
-                    manuscript_file=request.FILES[u'manuscript_file'],
-                    original_name =request.FILES[u'manuscript_file'].name,
-                    datetime_uploaded=datetime.datetime.utcnow().replace(tzinfo=utc),
-                    )
-                d.save()
-                m.current_document_version = models.Document.objects.get(id=d.document_ptr_id)
-                m.save()
-                nextform = forms.SelectServiceForm(order_pk=m.pk)
-                t = loader.get_template('order/form2.html')
-                c = RequestGlobalContext(request, {'form': nextform})
-                return HttpResponse(t.render(c))
-            else: #form1 invalid
-                messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
-                t = loader.get_template('order/form1.html')
-                c = RequestGlobalContext(request, {'form': form})
-                return HttpResponse(t.render(c))
-        elif (request.POST[u'step']==u'2'): #Step 2 was submitted
-            form = forms.SelectServiceForm(request.POST)
-            if form.is_valid():
-                new_data=form.cleaned_data;
-                m = models.ManuscriptOrder.objects.get(pk=int(new_data[u'order']))
-                m.pricepoint = models.PricePoint.objects.get(pk=int(new_data[u'servicetype']))
-                m.servicetype = m.pricepoint.servicetype
-                m.datetime_submitted=datetime.datetime.utcnow().replace(tzinfo=utc)
-                m.datetime_due = datetime.datetime.utcnow().replace(tzinfo=utc) + datetime.timedelta(m.servicetype.hours_until_due/24)
-                try:
-                    m.word_count_exact = new_data[u'word_count_exact']
-                except KeyError:
-                    m.word_count_exact = None
-                m.save()
-                if m.pricepoint.is_price_per_word:
-                    price_full = m.pricepoint.dollars_per_word * m.word_count_exact
-                else:
-                    price_full = m.pricepoint.dollars
-                p = models.CustomerPayment(
-                    manuscriptorder=m,
-                    is_payment_complete=False,
-                    price_full=price_full,
-                    price_charged=price_full,
-                    )
-                p.save()
-                invoice = {
-                    'rows': [
-                        {'description': m.get_service_description(), 
-                         'amount': p.get_amount_to_pay()},
-                        ],
-                    'subtotal': p.get_amount_to_pay(),
-                    'tax': '0.00',
-                    'amount_due': p.get_amount_to_pay(),
-                    'invoice_id': p.get_invoice_id_and_save(),
-                    }
-                context = {}
-                context['invoice'] = invoice
-                #Render payment form
-                if float(p.get_amount_to_pay()) < 0.01: # Free order, no payment due
-                    form = forms.SubmitOrderFreeForm(order_pk=m.pk, invoice_pk=invoice['invoice_id'])
-                    t = loader.get_template('order/submit_order_free.html')
-                    c = RequestGlobalContext(request, { 'form': form })
-                    context["pay_button"] = t.render(c)
-                    context["pay_button_message"] = ''
-                else:
-                    paypal_dict = {
-                        "business": settings.PAYPAL_RECEIVER_EMAIL,
-                        "amount": invoice['amount_due'],
-                        "item_name": m.get_service_description(),
-                        "invoice": invoice['invoice_id'],
-                        "notify_url": "%s%s" % (settings.ROOT_URL, reverse('paypal-ipn')),
-                        "return_url": "%s%s" % (settings.ROOT_URL, 'paymentreceived/'),
-                        "cancel_return": "%s%s" % (settings.ROOT_URL, 'paymentcanceled/'),
-                        }
-                    form = PayPalPaymentsForm(initial=paypal_dict)
-                    if settings.RACK_ENV=='production':
-                        context["pay_button"] = form.render()
-                    else:
-                        context["pay_button"] = form.sandbox()
-                    context["pay_button_message"] = 'Payment will be completed through PayPal'
-                context = RequestGlobalContext(request, context)
-                return render_to_response("order/submit_payment.html", context)
-            else: #form invalid
-                messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
-                t = loader.get_template('order/form2.html')
-                c = RequestGlobalContext(request, {'form': form})
-                return HttpResponse(t.render(c))
-        elif (request.POST[u'step']==u'3'): #Step 3 was submitted
-            form = forms.SubmitOrderFreeForm(request.POST)
-            if form.is_valid():
-                new_data = form.cleaned_data
-                invoice = new_data['invoice']
-                if models.CustomerPayment.objects.get(invoice_id=invoice).manuscriptorder.customer == request.user:
-                    acknowledge_payment_received(invoice)
-                    messages.add_message(request, messages.SUCCESS, 'Your order has been submitted.')
-                    return HttpResponseRedirect('/home/')
-                else:
-                    raise Exception('There was an error processing the order. Please contact support.')
+    else:
+        invoice_id = request.session.get('invoice_id', False)
+        if invoice_id:
+            try:
+                m = models.ManuscriptOrder.objects.get(invoice_id=invoice_id)
+            except models.ManuscriptOrder.DoesNotExist:
+                raise Exception('No records matched the invoice ID in the session data: invoice_id=%s' % invoice_id)
+            if m.is_payment_complete:
+                del request.session['invoice_id']
+                return HttpResponseRedirect('/order/')
+        if request.method == 'POST':
+            if invoice_id:
+                # m is already defined
+                pass
             else:
-                raise Exception('There was an error processing the order. Please contact support.')
+                m = models.ManuscriptOrder(customer=request.user)
+                m.save()
+                m.generate_invoice_id()
+                m.save()
+                request.session['invoice_id'] = m.invoice_id
+
+            form = forms.OrderForm(request.POST)
+            if form.is_valid():
+                new_data=form.cleaned_data
+                m.title=new_data[u'title']
+                try:
+                    m.subject=models.Subject.objects.get(pk=int(new_data[u'subject']))
+                except models.Subject.DoesNotExist:
+                    raise Exception('Could not find Subject with pk=%s' % new_data[u'subject'])
+                # If changing wordcountrange, reset fields whose values may no longer be valid: 
+                #   pricepoint, word_count_exact, and servicetype
+                try:
+                    new_wordcountrange = models.WordCountRange.objects.get(pk=int(new_data[u'word_count']))
+                except models.WordCountRange.DoesNotExist:
+                    raise Exception('Could not find WordCountRange with pk=%s' % new_data[u'word_count'])
+                if m.wordcountrange != new_wordcountrange:
+                    m.wordcountrange = new_wordcountrange
+                    m.servicetype = None
+                    m.word_count_exact = None
+                    m.pricepoint = None
+                m.save()
+                return HttpResponseRedirect('/serviceoptions/')
+            else:
+                # Invalid form
+                messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
+                t = loader.get_template('order/order_form.html')
+                c = RequestGlobalContext(request, {'form': form})
+                return HttpResponse(t.render(c))
+        else: #GET request
+            if invoice_id:
+                form = forms.OrderForm(initial={
+                        'title': m.title,
+                        'subject': m.subject.pk,
+                        'word_count':m.wordcountrange.pk,                    
+                        })
+            else:
+                form = forms.OrderForm()
+
+            t = loader.get_template('order/order_form.html')
+            c = RequestGlobalContext(request, {
+                    'form': form,
+                    })
+            return HttpResponse(t.render(c)) 
+
+
+def serviceoptions(request):
+    if settings.BLOCK_SERVICE:
+        return HttpResponseRedirect('/comebacksoon/')
+    elif not request.user.is_authenticated():
+        return HttpResponseRedirect('/register/')
+    else:
+        invoice_id = request.session.get('invoice_id', False)
+        if not invoice_id:
+            messages.add_message(request, messages.ERROR, 
+                                 'Could not find order information. Please make sure cookies are enabled in your browser.'
+                                 )
+            return HttpResponseRedirect('/order/')
         else:
-            raise Exception('No valid step number was specified')
-    else: # GET request
-        form = forms.UploadManuscriptForm()
-        t = loader.get_template('order/form1.html')
-        c = RequestGlobalContext(request, {
-            'form': form,
-        })
-        return HttpResponse(t.render(c)) 
+            try:
+                m = models.ManuscriptOrder.objects.get(invoice_id=invoice_id)
+            except models.ManuscriptOrder.DoesNotExist:
+                raise Exception('No records matched the invoice ID in the session data: invoice_id=%s' % invoice_id)
+            if m.is_payment_complete:
+                del request.session['invoice_id']
+                return HttpResponseRedirect('/order/')
+            else:
+                if request.method == 'POST':
+                    form = forms.SelectServiceForm(request.POST, invoice_id=invoice_id)
+                    if form.is_valid():
+                        new_data=form.cleaned_data            
+                        m.pricepoint = models.PricePoint.objects.get(pk=int(new_data[u'servicetype']))
+                        m.servicetype = m.pricepoint.servicetype
+                        try:
+                            m.word_count_exact = new_data[u'word_count_exact']
+                        except KeyError:
+                            m.word_count_exact = None
+
+                        m.save()
+                        return HttpResponseRedirect('/uploadmanuscript/')
+                    else:
+                        # Invalid form. Same response whether invoice_id is present or not
+                        messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
+                        t = loader.get_template('order/service_options.html')
+                        c = RequestGlobalContext(request, {'form': form})
+                        return HttpResponse(t.render(c))
+                else: #GET is expected if redirected from previous page of order form
+                    # Initialize form with saved data if available
+                    initial = {}
+                    if m.word_count_exact is not None:
+                        initial['word_count_exact'] = m.word_count_exact
+                    if m.pricepoint is not None:
+                        initial['servicetype'] = m.pricepoint.pk
+
+                    form = forms.SelectServiceForm(invoice_id=invoice_id, initial=initial)
+                    t = loader.get_template('order/service_options.html')
+                    c = RequestGlobalContext(request, {'form': form})
+                    return HttpResponse(t.render(c))
+                
+
+def uploadmanuscript(request):
+    if settings.BLOCK_SERVICE:
+        return HttpResponseRedirect('/comebacksoon/')
+    elif not request.user.is_authenticated():
+        return HttpResponseRedirect('/register/')
+    else:
+        invoice_id = request.session.get('invoice_id', False)
+        if not invoice_id:
+            messages.add_message(request, messages.ERROR, 
+                                 'Could not find order information. Please make sure cookies are enabled in your browser.'
+                                 )
+            return HttpResponseRedirect('/order/')
+        else:
+            try:
+                m = models.ManuscriptOrder.objects.get(invoice_id=invoice_id)
+            except models.ManuscriptOrder.DoesNotExist:
+                raise Exception('No records matched the invoice ID in the session data: invoice_id=%s' % invoice_id)
+            if m.is_payment_complete:
+                del request.session['invoice_id']
+                return HttpResponseRedirect('/order/')            
+            else:
+                if request.method == 'POST':
+                    return HttpResponseRedirect('/submit/')
+                else:
+                    try:
+                        d = m.originaldocument
+                    except models.OriginalDocument.DoesNotExist:
+                        d = models.OriginalDocument()
+                        d.manuscriptorder = m
+                        d.datetime_uploaded = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
+                        d.manuscript_file_key = d.create_file_key()
+                        d.save()
+
+                    s3uploadform = forms.S3UploadForm(
+                        settings.AWS_ACCESS_KEY_ID,
+                        settings.AWS_SECRET_ACCESS_KEY,
+                        settings.AWS_STORAGE_BUCKET_NAME,
+                        'uploads/'+d.manuscript_file_key+'/${filename}',
+                        expires_after = datetime.timedelta(days=1),
+                        success_action_redirect = settings.ROOT_URL+'awsconfirm/',
+                        max_size=20971520, # 20 MB
+                        )
+                    t = loader.get_template('order/upload_manuscript.html')
+                    c = RequestGlobalContext(request,{ 
+                            'form': s3uploadform,
+                            'BUCKET_NAME': settings.AWS_STORAGE_BUCKET_NAME,
+                            'UPLOAD_SUCCESSFUL': d.is_upload_confirmed
+                            })
+                    return HttpResponse(t.render(c))
+
+def awsconfirm(request):
+    if settings.BLOCK_SERVICE:
+        return HttpResponseRedirect('/comebacksoon/')
+    elif not request.user.is_authenticated():
+        return HttpResponseRedirect('/register/')
+    else:
+        invoice_id = request.session.get('invoice_id', False)
+        if not invoice_id:
+            messages.add_message(request, messages.ERROR, 
+                                 'Could not find order information. Please make sure cookies are enabled in your browser.'
+                                 )
+            return HttpResponseRedirect('/order/')
+        else:
+            try:
+                m = models.ManuscriptOrder.objects.get(invoice_id=invoice_id)
+            except models.ManuscriptOrder.DoesNotExist:
+                raise Exception('No records matched the invoice ID in the session data: invoice_id=%s' % invoice_id)
+            if m.is_payment_complete:
+                del request.session['invoice_id']
+                return HttpResponseRedirect('/order/')
+            else:
+                try:
+                    d = m.originaldocument
+                except models.OriginalDocument.DoesNotExist:
+                    raise Exception('Could not find record for uploaded document with invoice_id=%s' % invoice_id)
+                key = request.GET.get(u'key',None)
+                if key == None:
+                    raise Exception('Could not find AWS file key.')
+                # Split key to get path and filename
+                parts = key.split('/')
+                key = '/'.join(parts[1:-1])
+                if key != d.manuscript_file_key:
+                    raise Exception('The key from AWS %s does not match our records %s for the document with invoice_id=%s' 
+                                    % (key, d.manuscript_file_key, invoice_id))
+                d.original_name = parts[-1]
+                d.is_upload_confirmed = True
+                d.datetime_uploaded = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
+                d.save()
+                messages.add_message(request, messages.SUCCESS, 'The file %s was uploaded successfully.' % d.original_name)
+                return HttpResponseRedirect('/uploadmanuscript')
+
+
+def submit(request):
+    if settings.BLOCK_SERVICE:
+        return HttpResponseRedirect('/comebacksoon/')
+    elif not request.user.is_authenticated():
+        return HttpResponseRedirect('/register/')
+    else:
+        invoice_id = request.session.get('invoice_id', False)
+        if not invoice_id:
+            messages.add_message(request, messages.ERROR, 
+                                 'Could not find order information. Please make sure cookies are enabled in your browser.'
+                                 )
+            return HttpResponseRedirect('/order/')
+        else:
+            try:
+                m = models.ManuscriptOrder.objects.get(invoice_id=invoice_id)
+            except models.ManuscriptOrder.DoesNotExist:
+                raise Exception('No records matched the invoice ID in the session data: invoice_id=%s' % invoice_id)
+            if m.is_payment_complete:
+                del request.session['invoice_id']
+                return HttpResponseRedirect('/order/')
+            elif not m.order_is_ready_to_submit():
+                return HttpResponseRedirect('/order/')
+            else:
+                if request.method == 'POST':
+                    # POSTs should only come here if price is free. Payments go directly to PayPal.
+                    if float(m.get_amount_to_pay()) < 0.01:
+                        acknowledge_payment_received(invoice_id)
+                        messages.add_message(request, messages.INFO,
+                                             'Thank you! Your order is complete. You should receive an email confirming your order.'
+                                             )
+                        return HttpResponseRedirect('/home/')
+                    else:
+                        raise Exception('Invoice %s was submitted as a free trial, but payment is due.' % invoice_id)
+                else:
+                    m.calculate_price()
+                    m.save()
+                    invoice = {
+                        'rows': [
+                            {'description': m.get_service_description(), 
+                             'amount': m.get_amount_to_pay()},
+                            ],
+                        'subtotal': m.get_amount_to_pay(),
+                        'tax': '0.00',
+                        'amount_due': m.get_amount_to_pay(),
+                        }
+                    context = {}
+                    context['invoice_id'] = invoice_id
+                    context['invoice'] = invoice
+                    #Render payment form
+                    if float(m.get_amount_to_pay()) < 0.01: # Free order, no payment due
+                        t = loader.get_template('order/submit_order_free.html')
+                        c = RequestGlobalContext(request, {})
+                        context["pay_button"] = t.render(c)
+                        context["pay_button_message"] = ''
+                    else:
+                        paypal_dict = {
+                            "business": settings.PAYPAL_RECEIVER_EMAIL,
+                            "amount": invoice['amount_due'],
+                            "item_name": m.get_service_description(),
+                            "invoice": invoice_id,
+                            "notify_url": "%s%s" % (settings.ROOT_URL, reverse('paypal-ipn')),
+                            "return_url": "%s%s" % (settings.ROOT_URL, 'paymentreceived/'),
+                            "cancel_return": "%s%s" % (settings.ROOT_URL, 'paymentcanceled/'),
+                            }
+                        form = PayPalPaymentsForm(initial=paypal_dict)
+                        if settings.RACK_ENV=='production':
+                            context["pay_button"] = form.render()
+                        else:
+                            context["pay_button"] = form.sandbox()
+
+                    context["pay_button_message"] = 'Payment will be completed through PayPal'
+                    context = RequestGlobalContext(request, context)
+                    return render_to_response("order/submit_payment.html", context)
+
+
+#                m.current_document_version = models.Document.objects.get(id=d.document_ptr_id)
 
 
 def create_activation_key(user):
@@ -339,7 +503,7 @@ def confirm(request, activation_key=None):
                 t = loader.get_template('confirm.html')
                 c = RequestGlobalContext(request, {'form':form})
                 return HttpResponse(t.render(c))
-            if userprofile.key_expires < datetime.datetime.utcnow().replace(tzinfo=utc):
+            if userprofile.key_expires < datetime.datetime.utcnow().replace(tzinfo=timezone.utc):
                 # Key expired
                 messages.add_message(request,messages.ERROR,'The activation key has expired.')
                 t = loader.get_template('confirm.html')
@@ -453,7 +617,8 @@ def paymentcanceled(request):
 
 @csrf_exempt
 def paymentreceived(request):
-    messages.add_message(request, messages.SUCCESS, 'Your payment was received.')
+    messages.add_message(request, messages.SUCCESS, 
+                         'Thank you! Your order is complete. You should receive an email confirming your order.')
     return HttpResponseRedirect('/home/')
 
 
@@ -507,22 +672,26 @@ def verify_and_process_payment(sender, **kwargs):
     ipn_obj = sender
     invoice = ipn_obj.invoice
     acknowledge_payment_received(invoice)
+
 payment_was_successful.connect(verify_and_process_payment)
 
 
 def acknowledge_payment_received(invoice):
-    payment = models.CustomerPayment.objects.get(invoice_id=invoice)
-    payment.is_payment_complete = True
-    payment.save()
-    order = payment.manuscriptorder
-    user = order.customer
+    import logging
+    logging.error("here")
+    logging.error("is payment completed %s" % m.is_payment_complete)
+    m = models.ManuscriptOrder.objects.get(invoice_id=invoice)
+    m.is_payment_complete = True
+    m.order_received_now() 
+    m.save()
+    user = m.customer
     email_subject = 'Thank you! Your order to Science Writing Experts is complete'
     t = loader.get_template('payment_received.txt')
     c = Context({'customer_service_name': settings.CUSTOMER_SERVICE_NAME,
                  'customer_service_title': settings.CUSTOMER_SERVICE_TITLE,
                  'invoice': invoice,
-                 'amount_paid': payment.get_amount_to_pay(),
-                 'service_description': order.get_service_description(),
+                 'amount_paid': m.get_amount_to_pay(),
+                 'service_description': m.get_service_description(),
                  })
     email_body = t.render(c)
     mail = EmailMessage(subject=email_subject, 
