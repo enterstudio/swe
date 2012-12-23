@@ -677,9 +677,6 @@ payment_was_successful.connect(verify_and_process_payment)
 
 
 def acknowledge_payment_received(invoice):
-    import logging
-    logging.error("here")
-    logging.error("is payment completed %s" % m.is_payment_complete)
     m = models.ManuscriptOrder.objects.get(invoice_id=invoice)
     m.is_payment_complete = True
     m.order_received_now() 
