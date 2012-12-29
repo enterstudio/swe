@@ -1,0 +1,13 @@
+Welcome to Science Writing Experts! You have successfully activated your account.
+
+To submit a manuscript for editing, please login and visit {{ root_url }}order/.
+ 
+We are here to help you. Please feel free to contact us with any questions.
+
+Sincerely,
+
+{{ customer_service_name }}
+
+{{ customer_service_title }}
+
+{{ root_url }}
