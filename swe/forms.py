@@ -55,8 +55,11 @@ class RegisterForm(forms.Form):
         return email
 
 class LoginForm(forms.Form):
-    email = forms.CharField(label='Email address',max_length=30)
+    email = forms.CharField(label='Email address', max_length=30)
     password = forms.CharField(label='Password', max_length=30, widget=forms.PasswordInput)
+
+class PasswordResetForm(forms.Form):
+    email = forms.CharField(label='Email address', max_length=30)
 
 class ConfirmForm(forms.Form):
     activation_key = forms.CharField(label='Activation Key', max_length=100)

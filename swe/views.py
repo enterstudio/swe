@@ -477,7 +477,7 @@ def register(request):
                 'An activation key has been sent to your email address.')
             return HttpResponseRedirect('/confirm/')
         else:
-            messages.add_message(request,messages.ERROR,MessageCatalog.form_invalid)
+            messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
             # User posted invalid form
             t = loader.get_template('register.html')
             c = RequestGlobalContext(request, { 'form': form })
@@ -571,7 +571,7 @@ def activationrequest(request):
             messages.add_message(request,messages.SUCCESS,'A new activation key has been sent to your email address.')
             return HttpResponseRedirect('/confirm/')
         else:
-            messages.add_message(request,messages.ERROR,MessageCatalog.form_invalid)
+            messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
     else:
         form = forms.ActivationRequestForm()
     t = loader.get_template('activation_request.html')
@@ -604,8 +604,19 @@ def contact(request):
 
 
 def passwordreset(request):
+    if request.method=='POST':
+        form = forms.PasswordResetForm(request.POST)
+        if form.is_valid():
+            # If account exists, send email with reset code to confirmpasswordreset
+            # If not, send email with instructions to register
+            pass
+        else:
+            messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
+    else:
+        form = forms.PasswordResetForm()
+
     t = loader.get_template('password_reset.html')
-    c = RequestGlobalContext(request, {})
+    c = RequestGlobalContext(request, {'form': form})
     return HttpResponse(t.render(c))
 
 
