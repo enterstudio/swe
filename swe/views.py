@@ -454,10 +454,9 @@ def register(request):
             # Send an email with the confirmation link
             email_subject = 'Please confirm your account with Science Writing Experts'
             t = loader.get_template('email/activation_request.txt')
-            c = Context({'activation_key': new_profile.activation_key,
+            c = RequestGlobalContext(request, {'activation_key': new_profile.activation_key,
                          'customer_service_name': settings.CUSTOMER_SERVICE_NAME,
                          'customer_service_title': settings.CUSTOMER_SERVICE_TITLE,
-                         'root_url': settings.ROOT_URL,
                          })
             t_html = loader.get_template('email/activation_request.html')
             email_body = t.render(c)
@@ -519,6 +518,23 @@ def confirm(request, activation_key=None):
                 user_account.save()        
                 messages.add_message(request,messages.SUCCESS,
                                      'Your have successfully activated your account. Please login to continue.')
+                email_subject = 'Welcome to Science Writing Experts!'
+                t = loader.get_template('email/account_activated.txt')
+                c = RequestGlobalContext(request,
+                                         {'customer_service_name': settings.CUSTOMER_SERVICE_NAME,
+                                          'customer_service_title': settings.CUSTOMER_SERVICE_TITLE,
+                                          })
+                t_html = loader.get_template('email/account_activated.html')
+                email_body = t.render(c)
+                email_body_html = t_html.render(c)
+                mail = EmailMultiAlternatives(subject=email_subject, 
+                                              body=email_body, 
+                                              from_email='support@sciencewritingexperts.com', 
+                                              to=[userprofile.user.email], 
+                                              bcc=['support@sciencewritingexperts.com'])
+                mail.attach_alternative(email_body_html, 'text/html')
+                mail.send()
+
                 return HttpResponseRedirect('/login/')
         else:
             #form not valid
@@ -553,11 +569,11 @@ def activationrequest(request):
             email_subject = 'Please confirm your account with Science Writing Experts'
             t = loader.get_template('email/activationrequest.txt')
             t_html = loader.get_template('email/activationrequest.html')
-            c = Context({'activation_key': profile.activation_key,
-                         'customer_service_name': settings.CUSTOMER_SERVICE_NAME,
-                         'customer_service_title': settings.CUSTOMER_SERVICE_TITLE,
-                         'root_url': settings.ROOT_URL,
-                         })
+            c = RequestGlobalContext(request,
+                                     {'activation_key': profile.activation_key,
+                                      'customer_service_name': settings.CUSTOMER_SERVICE_NAME,
+                                      'customer_service_title': settings.CUSTOMER_SERVICE_TITLE,
+                                      })
             email_body = t.render(c)
             email_body_html = t_html.render(c)
             mail = EmailMultiAlternatives(subject=email_subject, 
@@ -691,12 +707,14 @@ def acknowledge_payment_received(invoice):
     email_subject = 'Thank you! Your order to Science Writing Experts is complete'
     t = loader.get_template('payment_received.txt')
     t_html = loader.get_template('payment_received.html')
-    c = Context({'customer_service_name': settings.CUSTOMER_SERVICE_NAME,
-                 'customer_service_title': settings.CUSTOMER_SERVICE_TITLE,
-                 'invoice': invoice,
-                 'amount_paid': m.get_amount_to_pay(),
-                 'service_description': m.get_service_description(),
-                 })
+    c = Context(
+        {'customer_service_name': settings.CUSTOMER_SERVICE_NAME,
+         'customer_service_title': settings.CUSTOMER_SERVICE_TITLE,
+         'invoice': invoice,
+         'amount_paid': m.get_amount_to_pay(),
+         'service_description': m.get_service_description(),
+         'root_url': settings.ROOT_URL,
+         })
     email_body = t.render(c)
     email_body_html = t_html.render(c)
     mail = EmailMultiAlternatives(subject=email_subject, 
