@@ -91,20 +91,6 @@ class OrderForm(forms.Form):
         )
 
 
-#    manuscript_file = forms.FileField()
-#    def clean_manuscript_file(self):
-#        content = self.cleaned_data['manuscript_file']
-#        content_type = content.content_type #.split('/')[0]
-#        if True: #content_type in settings.CONTENT_TYPES:
-#            if content._size > int(settings.MAX_UPLOAD_SIZE):
-#                raise forms.ValidationError(
-#                    u'Please keep file size under %s. Current file size is %s. You may need to remove images to reduce the file size. ' % (
-#                        filesizeformat(settings.MAX_UPLOAD_SIZE), filesizeformat(content._size)))
-#        else:
-#            raise forms.ValidationError(u'File type %s is not supported' % content_type)
-#        return content
-
-
 class SelectServiceForm(forms.Form):
     invoice_id = None
     servicetype = forms.ChoiceField(label='Type of service')
@@ -160,7 +146,7 @@ class S3UploadForm(forms.Form):
     success_action_redirect = forms.CharField(widget = forms.HiddenInput)
     policy = forms.CharField(widget = forms.HiddenInput)
     signature = forms.CharField(widget = forms.HiddenInput)
-    file = forms.FileField(widget = forms.ClearableFileInput(attrs={'class':'fileinput'}))
+    file = forms.FileField(widget = forms.FileInput(attrs={'class':'fileinput'}))
     
     def __init__(self, aws_access_key, aws_secret_key, bucket, key,
                  expires_after = datetime.timedelta(days = 1),
