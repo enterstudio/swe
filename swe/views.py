@@ -282,13 +282,15 @@ def uploadmanuscript(request):
                         'uploads/'+d.manuscript_file_key+'/${filename}',
                         expires_after = datetime.timedelta(days=1),
                         success_action_redirect = settings.ROOT_URL+'awsconfirm/',
+                        min_size=0,
                         max_size=20971520, # 20 MB
                         )
                     t = loader.get_template('order/upload_manuscript.html')
                     c = RequestGlobalContext(request,{ 
                             'form': s3uploadform,
                             'BUCKET_NAME': settings.AWS_STORAGE_BUCKET_NAME,
-                            'UPLOAD_SUCCESSFUL': d.is_upload_confirmed
+                            'UPLOAD_SUCCESSFUL': d.is_upload_confirmed,
+                            'FILENAME': d.original_name,
                             })
                     return HttpResponse(t.render(c))
 
@@ -317,7 +319,7 @@ def awsconfirm(request):
                     d = m.originaldocument
                 except models.OriginalDocument.DoesNotExist:
                     raise Exception('Could not find record for uploaded document with invoice_id=%s' % invoice_id)
-                key = request.GET.get(u'key',None)
+                key = request.GET.get(u'key', None)
                 if key == None:
                     raise Exception('Could not find AWS file key.')
                 # Split key to get path and filename
@@ -326,7 +328,11 @@ def awsconfirm(request):
                 if key != d.manuscript_file_key:
                     raise Exception('The key from AWS %s does not match our records %s for the document with invoice_id=%s' 
                                     % (key, d.manuscript_file_key, invoice_id))
-                d.original_name = parts[-1]
+                filename = parts[-1]
+                if filename == '':
+                    messages.add_message(request, messages.ERROR, 'Please choose a file to be uploaded.')
+                    return HttpResponseRedirect('/uploadmanuscript')
+                d.original_name = filename
                 d.is_upload_confirmed = True
                 d.datetime_uploaded = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
                 d.save()
@@ -420,7 +426,7 @@ def create_activation_key(user):
 
 
 def get_activation_key_expiration():
-    key_expires = datetime.datetime.today() + datetime.timedelta(2)
+    key_expires = datetime.datetime.today() + datetime.timedelta(7)
     return key_expires
 
 
