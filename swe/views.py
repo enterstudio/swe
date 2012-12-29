@@ -418,14 +418,14 @@ def submit(request):
 #                m.current_document_version = models.Document.objects.get(id=d.document_ptr_id)
 
 
-def create_activation_key(user):
-    # Build the activation key for their account
+def create_confirmation_key(user):
+    # Build the confirmation key for activation or password reset
     salt = sha.new(str(random.random())).hexdigest()[:5]
-    activation_key = sha.new(salt+user.email).hexdigest()
-    return activation_key
+    confirmation_key = sha.new(salt+user.email).hexdigest()
+    return confirmation_key
 
 
-def get_activation_key_expiration():
+def get_confirmation_key_expiration():
     key_expires = datetime.datetime.today() + datetime.timedelta(7)
     return key_expires
 
@@ -448,8 +448,8 @@ def register(request):
             new_user.first_name = new_data['first_name']
             new_user.last_name = new_data['last_name']
             new_user.save()
-            activation_key = create_activation_key(new_user)
-            key_expires = get_activation_key_expiration()
+            activation_key = create_confirmation_key(new_user)
+            key_expires = get_confirmation_key_expiration()
             # Create and save their profile
             new_profile = models.UserProfile(user=new_user,
                                       activation_key=activation_key,
@@ -566,8 +566,8 @@ def activationrequest(request):
         form = forms.ActivationRequestForm(request.POST)
         if form.is_valid():
             user = User.objects.get(username=form.cleaned_data[u'email'])
-            activation_key = create_activation_key(user)
-            key_expires = get_activation_key_expiration()
+            activation_key = create_confirmation_key(user)
+            key_expires = get_confirmation_key_expiration()
             profile = models.UserProfile.objects.get(user=user)
             profile.activation_key = activation_key
             profile.key_expires = key_expires
@@ -596,6 +596,7 @@ def activationrequest(request):
             messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
     else:
         form = forms.ActivationRequestForm()
+
     t = loader.get_template('activation_request.html')
     c = RequestGlobalContext(request, { 'form': form })
     return HttpResponse(t.render(c))
@@ -629,9 +630,13 @@ def passwordreset(request):
     if request.method=='POST':
         form = forms.PasswordResetForm(request.POST)
         if form.is_valid():
-            # If account exists, send email with reset code to confirmpasswordreset
-            # If not, send email with instructions to register
-            pass
+            user = User.objects.get(username=form.cleaned_data[u'email'])
+            username = request.POST['email']
+            user = User.objects.get(username=form.cleaned_data[u'email'])
+            user.userprofile.passwordreset_key = create_confirmation_key(user)
+            user.userprofile.passwordreset_expires = get_confirmation_key_expiration()
+            # TODO: If account does not exist, send email with instructions to register
+            # TODO: Use captcha
         else:
             messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
     else:
@@ -640,6 +645,12 @@ def passwordreset(request):
     t = loader.get_template('password_reset.html')
     c = RequestGlobalContext(request, {'form': form})
     return HttpResponse(t.render(c))
+
+
+def confirmpasswordreset(request):
+    # TODO
+    pass
+
 
 
 def block(request):

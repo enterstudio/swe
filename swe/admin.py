@@ -1,8 +1,8 @@
 from django.contrib import admin
 from swe.models import ManuscriptOrder, OriginalDocument, ManuscriptEdit, ServiceType, Subject, WordCountRange, ServiceList, PricePoint
-from swe.models import SubjectList, SubjectCategory, Subject
+from swe.models import SubjectList, SubjectCategory, Subject, UserProfile
 
-admin.site.register([ServiceType, Subject, WordCountRange])
+admin.site.register([ServiceType, Subject, WordCountRange, UserProfile])
 
 class OriginalDocumentInline(admin.StackedInline):
     model = OriginalDocument
