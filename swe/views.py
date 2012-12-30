@@ -388,7 +388,7 @@ def submit(request):
                     else:
                         context["pay_button"] = form.sandbox()
 
-                context["pay_button_message"] = 'Clicking the "Buy Now" button will redirect to PayPal to make a secure payment.'
+                context["pay_button_message"] = 'Clicking the "Buy Now" button will take you away from this site. Please complete your secure payment with PayPal.'
                 return render_to_response("order/submit_payment.html", GlobalRequestContext(request, context))
 
 
