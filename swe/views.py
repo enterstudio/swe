@@ -164,11 +164,18 @@ def order(request):
             return render_to_response("order/order_form.html", GlobalRequestContext(request, {'form': form}))
     else: #GET request
         if invoice_id: # Populate form with data from earlier order that was not submitted.
-            form = forms.OrderForm(initial={
-                    u'title': m.title,
-                    u'subject': m.subject.pk,
-                    u'word_count':m.wordcountrange.pk,                    
-                    })
+            initial = {u'title': m.title}
+            try:
+                subject = m.subject.pk
+                initial[u'subject'] = subject
+            except:
+                pass
+            try:
+                word_count = m.wordcountrange.pk
+                initial[u'word_count'] = word_count
+            except:
+                pass
+            form = forms.OrderForm(initial=initial)
             return render_to_response("order/order_form.html", GlobalRequestContext(request, {'form': form}))
         else:
             form = forms.OrderForm()
@@ -208,11 +215,16 @@ def serviceoptions(request):
                         m.word_count_exact = None
 
                     m.save()
-                    return HttpResponseRedirect('/uploadmanuscript/')
-                else:
-                    # Invalid form. Same response whether invoice_id is present or not
-                    messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
-                    return render_to_response('order/service_options.html', GlobalRequestContext(request, {'form': form}))
+                    if request.POST.get(u'back'):
+                        return HttpResponseRedirect('/order/')
+                    else:
+                        return HttpResponseRedirect('/uploadmanuscript/')
+                else: # Invalid form.
+                    if request.POST.get(u'back'):
+                        return HttpResponseRedirect('/order/')
+                    else:
+                        messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
+                        return render_to_response('order/service_options.html', GlobalRequestContext(request, {'form': form}))
             else: #GET is expected if redirected from previous page of order form
                 # Initialize form with saved data if available
                 initial = {}
@@ -228,6 +240,34 @@ def serviceoptions(request):
 @user_passes_test(helpers.logged_in_and_active)
 @user_passes_test(helpers.is_service_available, login_url='/comebacksoon/')
 def uploadmanuscript(request):
+    def render_page(m):
+        try:
+            d = m.originaldocument
+        except models.OriginalDocument.DoesNotExist:
+            d = models.OriginalDocument()
+            d.manuscriptorder = m
+            d.datetime_uploaded = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
+            d.manuscript_file_key = d.create_file_key()
+            d.save()
+            
+        s3uploadform = forms.S3UploadForm(
+            settings.AWS_ACCESS_KEY_ID,
+            settings.AWS_SECRET_ACCESS_KEY,
+            settings.AWS_STORAGE_BUCKET_NAME,
+            'uploads/'+d.manuscript_file_key+'/${filename}',
+            expires_after = datetime.timedelta(days=1),
+            success_action_redirect = settings.ROOT_URL+'awsconfirm/',
+            min_size=0,
+            max_size=20971520, # 20 MB
+            )
+        return render_to_response('order/upload_manuscript.html', 
+                                  GlobalRequestContext(request,{ 
+                    'form': s3uploadform,
+                    'BUCKET_NAME': settings.AWS_STORAGE_BUCKET_NAME,
+                    'UPLOAD_SUCCESSFUL': d.is_upload_confirmed,
+                    'FILENAME': d.original_name,
+                    }))
+
     invoice_id = request.session.get(u'invoice_id', False)
     if not invoice_id:
         messages.add_message(request, messages.ERROR, 
@@ -244,35 +284,16 @@ def uploadmanuscript(request):
             return HttpResponseRedirect('/order/')            
         else:
             if request.method == 'POST':
-                #TODO verify valid file exists
-                return HttpResponseRedirect('/submit/')
+                if request.POST.get(u'back'):
+                    return HttpResponseRedirect('/serviceoptions/')
+                else:
+                    if m.originaldocument.is_upload_confirmed:
+                        return HttpResponseRedirect('/submit/')
+                    else:
+                        messages.error(request, 'You must upload a file to continue.')
+                        return render_page(m)
             else:
-                try:
-                    d = m.originaldocument
-                except models.OriginalDocument.DoesNotExist:
-                    d = models.OriginalDocument()
-                    d.manuscriptorder = m
-                    d.datetime_uploaded = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
-                    d.manuscript_file_key = d.create_file_key()
-                    d.save()
-
-                s3uploadform = forms.S3UploadForm(
-                    settings.AWS_ACCESS_KEY_ID,
-                    settings.AWS_SECRET_ACCESS_KEY,
-                    settings.AWS_STORAGE_BUCKET_NAME,
-                    'uploads/'+d.manuscript_file_key+'/${filename}',
-                    expires_after = datetime.timedelta(days=1),
-                    success_action_redirect = settings.ROOT_URL+'awsconfirm/',
-                    min_size=0,
-                    max_size=20971520, # 20 MB
-                    )
-                return render_to_response('order/upload_manuscript.html', 
-                                          GlobalRequestContext(request,{ 
-                            'form': s3uploadform,
-                            'BUCKET_NAME': settings.AWS_STORAGE_BUCKET_NAME,
-                            'UPLOAD_SUCCESSFUL': d.is_upload_confirmed,
-                            'FILENAME': d.original_name,
-                            }))
+                return render_page(m)
 
 
 @user_passes_test(helpers.logged_in_and_active)
@@ -310,7 +331,7 @@ def awsconfirm(request):
             filename = parts[-1]
             if filename == '':
                 messages.add_message(request, messages.ERROR, 'Please choose a file to be uploaded.')
-                return HttpResponseRedirect('/uploadmanuscript')
+                return HttpResponseRedirect('/uploadmanuscript/')
             d.original_name = filename
             d.is_upload_confirmed = True
             d.datetime_uploaded = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
@@ -318,7 +339,7 @@ def awsconfirm(request):
             m.current_document_version = models.Document.objects.get(id=d.document_ptr_id)
             m.save()
             messages.add_message(request, messages.SUCCESS, 'The file %s was uploaded successfully.' % d.original_name)
-            return HttpResponseRedirect('/uploadmanuscript')
+            return HttpResponseRedirect('/uploadmanuscript/')
 
 
 @user_passes_test(helpers.logged_in_and_active)
@@ -339,9 +360,13 @@ def submit(request):
             del request.session[u'invoice_id'] # Prevent editing an already submitted order
             return HttpResponseRedirect('/order/')
         elif not m.order_is_ready_to_submit():
+            messages.error(request, 'The order is not complete. Please review the order and supply all needed information.')
             return HttpResponseRedirect('/order/')
         else:
             if request.method == 'POST':
+                if request.POST.get(u'back'):
+                    return HttpResponseRedirect('/uploadmanuscript/')
+
                 # POSTs should only come here if price is free. Payments go directly to PayPal.
                 if float(m.get_amount_to_pay()) < 0.01:
                     helpers.acknowledge_payment_received(invoice_id)
@@ -372,6 +397,7 @@ def submit(request):
                     c = GlobalRequestContext(request, {})
                     context["pay_button"] = t.render(c)
                     context["pay_button_message"] = ''
+                    return render_to_response("order/submit_payment.html", GlobalRequestContext(request, context))
                 else:
                     paypal_dict = {
                         "business": settings.PAYPAL_RECEIVER_EMAIL,
@@ -388,8 +414,8 @@ def submit(request):
                     else:
                         context["pay_button"] = form.sandbox()
 
-                context["pay_button_message"] = 'Clicking the "Buy Now" button will take you away from this site. Please complete your secure payment with PayPal.'
-                return render_to_response("order/submit_payment.html", GlobalRequestContext(request, context))
+                    context["pay_button_message"] = 'Clicking the "Buy Now" button will take you away from this site. Please complete your secure payment with PayPal.'
+                    return render_to_response("order/submit_payment.html", GlobalRequestContext(request, context))
 
 
 @user_passes_test(helpers.is_service_available, login_url='/comebacksoon/')

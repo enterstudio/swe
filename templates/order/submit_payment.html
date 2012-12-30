@@ -1,6 +1,9 @@
 {% extends "plain.html" %}
 {% block pageContentNoFormat %}
 <h3>Submit payment</h3>
+<form action="/submit/" method="post">{% csrf_token %}
+<input type="submit" name="back" value="< Back" class="btn-small btn-inverse" />
+</form>
 <p class="right">
   Invoice # {{ invoice.invoice_id}}
 </p>

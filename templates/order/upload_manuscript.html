@@ -36,15 +36,15 @@
 	      {{form.file}}
 	    </th>
 	    <td>
-	      <input type="submit" value="Upload" class="btn-large"/>
+	      <input type="submit" value="Upload" class="btn-small"/>
 	    </td>
 	  </tr>
 	</tbody>
       </table>
     </form>
     <form action="/uploadmanuscript/" method="post">{% csrf_token %}
-      {% if UPLOAD_SUCCESSFUL %}
       <table class="tbl-center">
+	{% if UPLOAD_SUCCESSFUL %}
 	<tr>
 	    <th></th>
 	    <td>
@@ -52,14 +52,15 @@
 	      <br><br>
 	    </td>
 	</tr>
+	{% endif %}
 	<tr>
 	    <th></th>
 	    <td>
-	      <input type="submit" value="Continue" class="btn-large btn-inverse"/>
+	      <input type="submit" name="back" value="< Back" class="btn-small btn-inverse" />
+              <input type="submit" name="continue" value="Continue >" class="btn-small btn-inverse" />
 	    </td>
 	</tr>
       </table>
-      {% endif %}
     </form>
   </div>
 </div>
