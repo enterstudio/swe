@@ -1,13 +1,9 @@
 Thank you for registering at Science Writing Experts!
 
-To activate your account, please click this link within 7 days:
+To activate your account, please click this link:
 
 {{ root_url }}confirm/{{ activation_key }}
  
-Or visit {{ root_url }}confirm/ and enter this activation key: 
- 
-{{ activation_key }}
-
 Sincerely,
 
 {{ customer_service_name }}

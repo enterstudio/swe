@@ -1,5 +1,6 @@
 {% extends "plain.html" %}
 {% block pageContentNoFormat %}
 <h3>Account</h3>
-<p>You are currently logged in as: <br> {{ user.username }}</p>
+<p>{{ user.username }}</p>
+<a href="/changepassword/">Change password</a>
 {% endblock %}

@@ -7,6 +7,7 @@ from django import forms
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.template.defaultfilters import filesizeformat
+from django.utils import timezone
 from django.utils.safestring import mark_safe
 # TODO: remove import of individual models, move to models.Model format
 from swe.models import SubjectList, Subject, ServiceList, ServiceType, WordCountRange
@@ -14,24 +15,29 @@ from swe import models
 
 
 class RegisterForm(forms.Form):
-    first_name = forms.CharField(label='First Name',
-                            max_length=30,
-                            )
-    last_name = forms.CharField(label='Last Name',
-                            max_length=30,
-                            )
+    first_name = forms.CharField(
+        label='First Name',
+        max_length=30,
+        )
+    last_name = forms.CharField(
+        label='Last Name',
+        max_length=30,
+        )
     #email is be treated as username in auth.models.User and separately written to active_email in UserProfile
-    email = forms.EmailField(label='Email address', 
-                            max_length = 30,
-                            )
-    password = forms.CharField(label='Password',
-                            max_length = 30,
-                            widget=forms.PasswordInput,
-                            )
-    password_confirm = forms.CharField(label='Re-type password',
-                            max_length = 30,
-                            widget=forms.PasswordInput,
-                            )
+    email = forms.EmailField(
+        label='Email address', 
+        max_length = 30,
+        )
+    password = forms.CharField(
+        label='Password',
+        max_length = 30,
+        widget=forms.PasswordInput,
+        )
+    password_confirm = forms.CharField(
+        label='Password again',
+        max_length = 30,
+        widget=forms.PasswordInput,
+        )
 
     def clean(self):
         cleaned_data = super(RegisterForm,self).clean()
@@ -55,19 +61,100 @@ class RegisterForm(forms.Form):
         return email
 
 class LoginForm(forms.Form):
-    email = forms.CharField(label='Email address', max_length=30)
-    password = forms.CharField(label='Password', max_length=30, widget=forms.PasswordInput)
+    email = forms.CharField(
+        label='Email address', 
+        max_length=30,
+        )
+    password = forms.CharField(
+        label='Password', 
+        max_length=30, 
+        widget=forms.PasswordInput,
+        )
 
-class PasswordResetForm(forms.Form):
-    email = forms.CharField(label='Email address', max_length=30)
+class RequestResetPasswordForm(forms.Form):
+    email = forms.CharField(
+        label='Email address', 
+        max_length=30,
+        )
+
+class ResetPasswordForm(forms.Form):
+    resetpassword_key = forms.CharField(
+        widget=forms.HiddenInput, 
+        max_length=40,
+        )
+    email = forms.EmailField(
+        label='Email address', 
+        max_length = 30,
+        )
+    password = forms.CharField(
+        label='New password',
+        max_length = 30,
+        widget=forms.PasswordInput,
+        )
+    password_confirm = forms.CharField(
+        label='Password again',
+        max_length = 30,
+        widget=forms.PasswordInput,
+        )
+
+    def clean(self):
+        cleaned_data = super(ResetPasswordForm,self).clean()
+        if cleaned_data.get('password') != cleaned_data.get('password_confirm'):
+            raise forms.ValidationError('The passwords do not match')
+        try:
+            userprofile = models.UserProfile.objects.get(resetpassword_key=cleaned_data.get('resetpassword_key'))
+        except models.UserProfile.DoesNotExist:
+            raise forms.ValidationError('This request is not valid. Please submit a new request to reset your password.')
+        if userprofile.resetpassword_expires < datetime.datetime.utcnow().replace(tzinfo=timezone.utc):
+            raise forms.ValidationError('This request has expired. Please submit a new request to reset your password.')
+        if userprofile.user.email != cleaned_data.get('email'):
+            raise forms.ValidationError(
+                'This request is not valid for the email address provied. '+
+                'Please correct the email address or submit a new request to reset your password.')
+        return cleaned_data
+
+class ChangePasswordForm(forms.Form):    
+    old_password = forms.CharField(
+        label='Old password',
+        max_length = 30,
+        widget=forms.PasswordInput,
+        )
+    new_password = forms.CharField(
+        label='New password',
+        max_length = 30,
+        widget=forms.PasswordInput,
+        )
+    password_confirm = forms.CharField(
+        label='New password again',
+        max_length = 30,
+        widget=forms.PasswordInput,
+        )
+    def __init__(self, user, *args, **kwargs):
+        self.user = user
+        super(ChangePasswordForm, self).__init__(*args, **kwargs)
+
+    def clean(self):
+        cleaned_data = super(ChangePasswordForm,self).clean()
+        if cleaned_data.get('new_password') != cleaned_data.get('password_confirm'):
+            raise forms.ValidationError('The passwords do not match')
+        if not self.user.check_password(cleaned_data.get('old_password')):
+            raise forms.ValidationError('The password is incorrect')
+        return cleaned_data
 
 class ConfirmForm(forms.Form):
-    activation_key = forms.CharField(label='Activation Key', max_length=100)
+    activation_key = forms.CharField(
+        label='Activation Key', 
+        max_length=100,
+        )
 
 class ActivationRequestForm(forms.Form):
-    email = forms.CharField(label='Email address',max_length=30)
+    email = forms.CharField(
+        label='Email address',
+        max_length=30,
+        )
 
     def clean_email(self):
+        #TODO: Fix this to avoid revealing if an email is registered.
         email = self.cleaned_data['email']
 
         # Verify that email is on record.
@@ -107,7 +194,7 @@ class SelectServiceForm(forms.Form):
             raise Exception('Missing required argument invoice_id.')
         super(SelectServiceForm, self).__init__(*args, **kwargs)
         manuscriptorder = models.ManuscriptOrder.objects.get(invoice_id=self.invoice_id)
-        self.fields['servicetype'].choices = manuscriptorder.wordcountrange.get_pricepoint_choicelist()
+        self.fields[u'servicetype'].choices = manuscriptorder.wordcountrange.get_pricepoint_choicelist()
         if manuscriptorder.wordcountrange.max_words is not None:
             # A definite word count range is already specified. Drop the field.
             del(self.fields['word_count_exact'])
@@ -115,7 +202,7 @@ class SelectServiceForm(forms.Form):
     def clean_word_count_exact(self):
         manuscriptorder = models.ManuscriptOrder.objects.get(invoice_id=self.invoice_id)
         maximum_allowed = 1000000
-        words = self.cleaned_data['word_count_exact']
+        words = self.cleaned_data[u'word_count_exact']
         if manuscriptorder.wordcountrange.min_words is not None:
             if words < manuscriptorder.wordcountrange.min_words:            
                 raise forms.ValidationError("This word count is not in the selected range.")

@@ -62,8 +62,8 @@ def login(request):
     if request.method == 'POST':
         form = forms.LoginForm(request.POST)
         if form.is_valid():
-            username = form.cleaned_data['email']
-            password = form.cleaned_data['password']
+            username = form.cleaned_data[u'email']
+            password = form.cleaned_data[u'password']
             user = auth.authenticate(username=username, password=password)
 
             if user is not None:
@@ -85,7 +85,7 @@ def login(request):
                 # invalid login info
                 messages.add_message(request,messages.ERROR,'Invalid username or password.')
                 t = loader.get_template('login.html')
-                c = RequestGlobalContext(request, { 'form': form })
+                c = RequestGlobalContext(request, {'form': form})
                 return HttpResponse(t.render(c))
         else:
             # form data invalid
@@ -97,7 +97,7 @@ def login(request):
         # get unbound form
         form = forms.LoginForm()
         t = loader.get_template('login.html')
-        c = RequestGlobalContext(request, { 'form': form })
+        c = RequestGlobalContext(request, {'form': form})
         return HttpResponse(t.render(c))
 
 
@@ -124,14 +124,14 @@ def order(request):
     elif not request.user.is_authenticated():
         return HttpResponseRedirect('/register/')
     else:
-        invoice_id = request.session.get('invoice_id', False)
+        invoice_id = request.session.get(u'invoice_id', False)
         if invoice_id:
             try:
                 m = models.ManuscriptOrder.objects.get(invoice_id=invoice_id)
             except models.ManuscriptOrder.DoesNotExist:
                 raise Exception('No records matched the invoice ID in the session data: invoice_id=%s' % invoice_id)
             if m.is_payment_complete:
-                del request.session['invoice_id']
+                del request.session[u'invoice_id']
                 return HttpResponseRedirect('/order/')
         if request.method == 'POST':
             if invoice_id:
@@ -142,7 +142,7 @@ def order(request):
                 m.save()
                 m.generate_invoice_id()
                 m.save()
-                request.session['invoice_id'] = m.invoice_id
+                request.session[u'invoice_id'] = m.invoice_id
 
             form = forms.OrderForm(request.POST)
             if form.is_valid():
@@ -174,9 +174,9 @@ def order(request):
         else: #GET request
             if invoice_id:
                 form = forms.OrderForm(initial={
-                        'title': m.title,
-                        'subject': m.subject.pk,
-                        'word_count':m.wordcountrange.pk,                    
+                        u'title': m.title,
+                        u'subject': m.subject.pk,
+                        u'word_count':m.wordcountrange.pk,                    
                         })
             else:
                 form = forms.OrderForm()
@@ -206,14 +206,17 @@ def serviceoptions(request):
             except models.ManuscriptOrder.DoesNotExist:
                 raise Exception('No records matched the invoice ID in the session data: invoice_id=%s' % invoice_id)
             if m.is_payment_complete:
-                del request.session['invoice_id']
+                del request.session[u'invoice_id']
                 return HttpResponseRedirect('/order/')
             else:
                 if request.method == 'POST':
                     form = forms.SelectServiceForm(request.POST, invoice_id=invoice_id)
                     if form.is_valid():
                         new_data=form.cleaned_data            
-                        m.pricepoint = models.PricePoint.objects.get(pk=int(new_data[u'servicetype']))
+                        try:
+                            m.pricepoint = models.PricePoint.objects.get(pk=int(new_data[u'servicetype']))
+                        except PricePoint.DoesNotExist:
+                            raise Exception('Could not find pricepoint with pk=%s' % int(new_data[u'servicetype']))
                         m.servicetype = m.pricepoint.servicetype
                         try:
                             m.word_count_exact = new_data[u'word_count_exact']
@@ -232,9 +235,9 @@ def serviceoptions(request):
                     # Initialize form with saved data if available
                     initial = {}
                     if m.word_count_exact is not None:
-                        initial['word_count_exact'] = m.word_count_exact
+                        initial[u'word_count_exact'] = m.word_count_exact
                     if m.pricepoint is not None:
-                        initial['servicetype'] = m.pricepoint.pk
+                        initial[u'servicetype'] = m.pricepoint.pk
 
                     form = forms.SelectServiceForm(invoice_id=invoice_id, initial=initial)
                     t = loader.get_template('order/service_options.html')
@@ -248,7 +251,7 @@ def uploadmanuscript(request):
     elif not request.user.is_authenticated():
         return HttpResponseRedirect('/register/')
     else:
-        invoice_id = request.session.get('invoice_id', False)
+        invoice_id = request.session.get(u'invoice_id', False)
         if not invoice_id:
             messages.add_message(request, messages.ERROR, 
                                  'Could not find order information. Please make sure cookies are enabled in your browser.'
@@ -260,7 +263,7 @@ def uploadmanuscript(request):
             except models.ManuscriptOrder.DoesNotExist:
                 raise Exception('No records matched the invoice ID in the session data: invoice_id=%s' % invoice_id)
             if m.is_payment_complete:
-                del request.session['invoice_id']
+                del request.session[u'invoice_id']
                 return HttpResponseRedirect('/order/')            
             else:
                 if request.method == 'POST':
@@ -312,7 +315,7 @@ def awsconfirm(request):
             except models.ManuscriptOrder.DoesNotExist:
                 raise Exception('No records matched the invoice ID in the session data: invoice_id=%s' % invoice_id)
             if m.is_payment_complete:
-                del request.session['invoice_id']
+                del request.session[u'invoice_id']
                 return HttpResponseRedirect('/order/')
             else:
                 try:
@@ -358,7 +361,7 @@ def submit(request):
             except models.ManuscriptOrder.DoesNotExist:
                 raise Exception('No records matched the invoice ID in the session data: invoice_id=%s' % invoice_id)
             if m.is_payment_complete:
-                del request.session['invoice_id']
+                del request.session[u'invoice_id']
                 return HttpResponseRedirect('/order/')
             elif not m.order_is_ready_to_submit():
                 return HttpResponseRedirect('/order/')
@@ -460,18 +463,20 @@ def register(request):
             # Send an email with the confirmation link
             email_subject = 'Please confirm your account with Science Writing Experts'
             t = loader.get_template('email/activation_request.txt')
-            c = RequestGlobalContext(request, {'activation_key': new_profile.activation_key,
-                         'customer_service_name': settings.CUSTOMER_SERVICE_NAME,
-                         'customer_service_title': settings.CUSTOMER_SERVICE_TITLE,
-                         })
+            c = RequestGlobalContext(request, {
+                    'activation_key': new_profile.activation_key,
+                    'customer_service_name': settings.CUSTOMER_SERVICE_NAME,
+                    'customer_service_title': settings.CUSTOMER_SERVICE_TITLE,
+                    })
             t_html = loader.get_template('email/activation_request.html')
             email_body = t.render(c)
             email_body_html = t_html.render(c)
-            mail = EmailMultiAlternatives(subject=email_subject, 
-                         body=email_body, 
-                         from_email='support@sciencewritingexperts.com', 
-                         to=[new_user.email], 
-                         bcc=['support@sciencewritingexperts.com'])
+            mail = EmailMultiAlternatives(
+                subject=email_subject, 
+                body=email_body, 
+                from_email='support@sciencewritingexperts.com', 
+                to=[new_user.email], 
+                bcc=['support@sciencewritingexperts.com'])
             mail.attach_alternative(email_body_html, 'text/html')
             mail.send()
             new_profile.save()
@@ -495,28 +500,24 @@ def register(request):
         return HttpResponse(t.render(c))
 
 
-def confirm(request, activation_key=None):
+def confirmactivation(request, activation_key=None):
     if settings.BLOCK_SERVICE:
         return HttpResponseRedirect('/comebacksoon/')
     if request.method=='POST':
         # POST
         form = forms.ConfirmForm(request.POST)
         if form.is_valid():
-            activation_key = form.cleaned_data['activation_key']
+            activation_key = form.cleaned_data[u'activation_key']
             try:
                 userprofile = models.UserProfile.objects.get(activation_key=activation_key)
             except models.UserProfile.DoesNotExist:
                 # Could not find activation key
-                messages.add_message(request,messages.ERROR,'The activation key is not valid. Please check that you copied it correctly.')
-                t = loader.get_template('confirm.html')
-                c = RequestGlobalContext(request, {'form':form})
-                return HttpResponse(t.render(c))
+                messages.add_message(request,messages.ERROR,'The activation key is not valid. Please request a new activation key.')
+                return HttpResponseRedirect('/activationrequest/')
             if userprofile.key_expires < datetime.datetime.utcnow().replace(tzinfo=timezone.utc):
                 # Key expired
-                messages.add_message(request,messages.ERROR,'The activation key has expired.')
-                t = loader.get_template('confirm.html')
-                c = RequestGlobalContext(request,{'form':form})
-                return HttpResponse(t.render(c))
+                messages.add_message(request,messages.ERROR,'The activation key has expired. Please request a new activation key.')
+                return HttpResponseRedirect('/activationrequest/')
             else:
                 # Key is good
                 user_account = userprofile.user
@@ -551,7 +552,7 @@ def confirm(request, activation_key=None):
     else:
         # GET
         if activation_key is not None:
-            form = forms.ConfirmForm(initial={'activation_key':activation_key})
+            form = forms.ConfirmForm(initial={u'activation_key': activation_key})
         else:
             form = forms.ConfirmForm()
         t = loader.get_template('confirm.html')
@@ -563,18 +564,23 @@ def activationrequest(request):
     if settings.BLOCK_SERVICE:
         return HttpResponseRedirect('/comebacksoon/')
     if request.method=='POST':
+        #TODO: Use Captcha
         form = forms.ActivationRequestForm(request.POST)
         if form.is_valid():
-            user = User.objects.get(username=form.cleaned_data[u'email'])
+            try:
+                user = User.objects.get(username=form.cleaned_data[u'email'])
+            except User.DoesNotExist:
+                raise Exception('Could not find user with username=%s' % form.cleaned_data[u'email'])
+                #TODO: when activation requested for unknown email address, send registration instructions
             activation_key = create_confirmation_key(user)
             key_expires = get_confirmation_key_expiration()
-            profile = models.UserProfile.objects.get(user=user)
+            profile = user.userprofile
             profile.activation_key = activation_key
             profile.key_expires = key_expires
             # Send an email with the confirmation link
             email_subject = 'Please confirm your account with Science Writing Experts'
-            t = loader.get_template('email/activationrequest.txt')
-            t_html = loader.get_template('email/activationrequest.html')
+            t = loader.get_template('email/activation_request.txt')
+            t_html = loader.get_template('email/activation_request.html')
             c = RequestGlobalContext(request,
                                      {'activation_key': profile.activation_key,
                                       'customer_service_name': settings.CUSTOMER_SERVICE_NAME,
@@ -590,7 +596,7 @@ def activationrequest(request):
             mail.attach_alternative(email_body_html,'text/html')
             mail.send()
             profile.save()
-            messages.add_message(request,messages.SUCCESS,'A new activation key has been sent to your email address.')
+            messages.add_message(request,messages.SUCCESS,'A new activation key has been sent to %s.' % user.email)
             return HttpResponseRedirect('/confirm/')
         else:
             messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
@@ -626,31 +632,121 @@ def contact(request):
     return HttpResponse(t.render(c))
 
 
-def passwordreset(request):
+def requestresetpassword(request):
+    if settings.BLOCK_SERVICE:
+        return HttpResponseRedirect('/comebacksoon/')
     if request.method=='POST':
-        form = forms.PasswordResetForm(request.POST)
+        form = forms.RequestResetPasswordForm(request.POST)
+        # TODO: Use captcha
         if form.is_valid():
-            user = User.objects.get(username=form.cleaned_data[u'email'])
-            username = request.POST['email']
-            user = User.objects.get(username=form.cleaned_data[u'email'])
-            user.userprofile.passwordreset_key = create_confirmation_key(user)
-            user.userprofile.passwordreset_expires = get_confirmation_key_expiration()
-            # TODO: If account does not exist, send email with instructions to register
-            # TODO: Use captcha
+            email = form.cleaned_data[u'email']
+            try:
+                user = User.objects.get(username=email)
+            except User.DoesNotExist:
+                # TODO: If account does not exist, send email with instructions to register
+                raise Exception('We could not find this email address.')
+            profile = user.userprofile
+            profile.resetpassword_key = create_confirmation_key(user)
+            profile.resetpassword_expires = get_confirmation_key_expiration()
+            profile.save()
+            # Send an email with the confirmation link
+            email_subject = 'Science Writing Experts password reset'
+            t = loader.get_template('email/request_reset_password.txt')
+            c = RequestGlobalContext(request, {
+                    'resetpassword_key': profile.resetpassword_key,
+                    'customer_service_name': settings.CUSTOMER_SERVICE_NAME,
+                    'customer_service_title': settings.CUSTOMER_SERVICE_TITLE,
+                    })
+            t_html = loader.get_template('email/request_reset_password.html')
+            email_body = t.render(c)
+            email_body_html = t_html.render(c)
+            mail = EmailMultiAlternatives(
+                subject=email_subject, 
+                body=email_body, 
+                from_email='support@sciencewritingexperts.com', 
+                to=[email], 
+                bcc=['support@sciencewritingexperts.com'])
+            mail.attach_alternative(email_body_html, 'text/html')
+            mail.send()
+            messages.add_message(request, messages.ERROR, 'An email has been sent with instructions for resetting your password.')
+            return HttpResponseRedirect('/home/')
         else:
             messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
-    else:
-        form = forms.PasswordResetForm()
+    else: # GET blank form
+        form = forms.RequestResetPasswordForm()
 
-    t = loader.get_template('password_reset.html')
+    t = loader.get_template('request_reset_password.html')
     c = RequestGlobalContext(request, {'form': form})
     return HttpResponse(t.render(c))
 
 
-def confirmpasswordreset(request):
-    # TODO
-    pass
+def completeresetpassword(request, resetpassword_key=None):
+    if settings.BLOCK_SERVICE:
+        return HttpResponseRedirect('/comebacksoon/')
+    if request.method == 'POST':
+        form = forms.ResetPasswordForm(request.POST)
+        if form.is_valid():
+            resetpassword_key = form.cleaned_data[u'resetpassword_key']
+            try:
+                userprofile = models.UserProfile.objects.get(resetpassword_key=resetpassword_key)
+            except models.UserProfile.DoesNotExist:
+                raise Exception('User not found') #This should be prevented by form validation
+            # Everything ok. Change password
+            userprofile.user.set_password(form.cleaned_data[u'password'])
+            messages.add_message(request, messages.SUCCESS, 
+                                 'Your password has been successfully updated.')
+            return HttpResponseRedirect('/login/')
+        else:
+            messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
+            t = loader.get_template('complete_reset_password.html')
+            c = RequestGlobalContext(request, {'form': form})
+            return HttpResponse(t.render(c))           
+    else:
+        try:
+            userprofile = models.UserProfile.objects.get(resetpassword_key=resetpassword_key)
+        except models.UserProfile.DoesNotExist:
+            messages.add_message(request,messages.ERROR,
+                                 'This request is not valid. Please contact support.')
+            return HttpResponseRedirect('/home/')
+        if userprofile.resetpassword_expires < datetime.datetime.utcnow().replace(tzinfo=timezone.utc):
+            # Key expired
+            messages.add_message(request,messages.ERROR,
+                                 'The link has expired. Please subit a new request to reset your password.')
+            return HttpResponseRedirect('/resetpassword/')
+        else:
+            # Key is good. Render form.
+            form = forms.ResetPasswordForm(initial={
+                    u'resetpassword_key': resetpassword_key})
+            t = loader.get_template('complete_reset_password.html')
+            c = RequestGlobalContext(request, {'form': form})
+            return HttpResponse(t.render(c))
 
+
+def changepassword(request):
+    if settings.BLOCK_SERVICE:
+        return HttpResponseRedirect('/comebacksoon/')
+    elif not request.user.is_authenticated():
+        return HttpResponseRedirect('/register/')
+    else:
+        if request.method == 'POST':
+            form = forms.ChangePasswordForm(request.user, request.POST)
+            if form.is_valid():
+                # Everything ok. Change password
+                request.user.set_password(form.cleaned_data[u'new_password'])
+                request.user.save()
+                messages.add_message(request, messages.SUCCESS, 
+                                     'Your password has been successfully changed.')
+                return HttpResponseRedirect('/account/')
+            else:
+                messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
+                t = loader.get_template('change_password.html')
+                c = RequestGlobalContext(request, {'form': form})
+                return HttpResponse(t.render(c))           
+        else:
+            form = forms.ChangePasswordForm(request.user)
+            t = loader.get_template('change_password.html')
+            c = RequestGlobalContext(request, {'form': form})
+            return HttpResponse(t.render(c))
 
 
 def block(request):
@@ -727,7 +823,10 @@ payment_was_successful.connect(verify_and_process_payment)
 
 
 def acknowledge_payment_received(invoice):
-    m = models.ManuscriptOrder.objects.get(invoice_id=invoice)
+    try:
+        m = models.ManuscriptOrder.objects.get(invoice_id=invoice)
+    except ManuscriptOrder.DoesNotExist:
+        raise Exception('Invalid invoice id #%s' % invoice)
     m.is_payment_complete = True
     m.order_received_now() 
     m.save()

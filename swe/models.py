@@ -12,8 +12,8 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User)
     activation_key = models.CharField(max_length=40)
     key_expires = models.DateTimeField()
-    passwordreset_key = models.CharField(max_length=40)
-    passwordreset_expires = models.DateTimeField()
+    resetpassword_key = models.CharField(max_length=40, null=True)
+    resetpassword_expires = models.DateTimeField(null=True)
     active_email = models.CharField(max_length=100)
     active_email_confirmed = models.BooleanField()
     def __unicode__(self):

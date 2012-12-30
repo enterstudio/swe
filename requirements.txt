@@ -9,4 +9,5 @@ gunicorn==0.16.1
 PIL==1.1.7
 psycopg2==2.4.5
 simplejson==2.3.2
+South==0.7.6
 wsgiref==0.1.2
