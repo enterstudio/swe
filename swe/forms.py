@@ -9,8 +9,6 @@ from django.contrib.auth.models import User
 from django.template.defaultfilters import filesizeformat
 from django.utils import timezone
 from django.utils.safestring import mark_safe
-# TODO: remove import of individual models, move to models.Model format
-from swe.models import SubjectList, Subject, ServiceList, ServiceType, WordCountRange
 from swe import models
 
 
@@ -23,7 +21,6 @@ class RegisterForm(forms.Form):
         label='Last Name',
         max_length=30,
         )
-    #email is be treated as username in auth.models.User and separately written to active_email in UserProfile
     email = forms.EmailField(
         label='Email address', 
         max_length = 30,
@@ -47,8 +44,8 @@ class RegisterForm(forms.Form):
 
     def clean_email(self):
         email = self.cleaned_data['email']
-
-        # email doubles used as username. Verify that it is unique in both fields.
+        # email doubles as auth.models.User.username and swe.models.UserProfile.active_email. Verify that it is unique in both fields.
+        # TODO make email usage consistent, allow for email change. Never use auth email
         try:
             User.objects.get(email=email)
         except User.DoesNotExist:
@@ -59,6 +56,7 @@ class RegisterForm(forms.Form):
 
         raise forms.ValidationError("This email address is already registered.")
         return email
+
 
 class LoginForm(forms.Form):
     email = forms.CharField(
@@ -71,11 +69,13 @@ class LoginForm(forms.Form):
         widget=forms.PasswordInput,
         )
 
+
 class RequestResetPasswordForm(forms.Form):
     email = forms.CharField(
         label='Email address', 
         max_length=30,
         )
+
 
 class ResetPasswordForm(forms.Form):
     resetpassword_key = forms.CharField(
@@ -97,6 +97,7 @@ class ResetPasswordForm(forms.Form):
         widget=forms.PasswordInput,
         )
 
+
     def clean(self):
         cleaned_data = super(ResetPasswordForm,self).clean()
         if cleaned_data.get('password') != cleaned_data.get('password_confirm'):
@@ -112,6 +113,7 @@ class ResetPasswordForm(forms.Form):
                 'This request is not valid for the email address provied. '+
                 'Please correct the email address or submit a new request to reset your password.')
         return cleaned_data
+
 
 class ChangePasswordForm(forms.Form):    
     old_password = forms.CharField(
@@ -129,6 +131,7 @@ class ChangePasswordForm(forms.Form):
         max_length = 30,
         widget=forms.PasswordInput,
         )
+
     def __init__(self, user, *args, **kwargs):
         self.user = user
         super(ChangePasswordForm, self).__init__(*args, **kwargs)
@@ -141,11 +144,14 @@ class ChangePasswordForm(forms.Form):
             raise forms.ValidationError('The password is incorrect')
         return cleaned_data
 
+
 class ConfirmForm(forms.Form):
     activation_key = forms.CharField(
         label='Activation Key', 
-        max_length=100,
+        max_length=40,
+        widget=forms.HiddenInput,
         )
+
 
 class ActivationRequestForm(forms.Form):
     email = forms.CharField(
@@ -173,11 +179,11 @@ class OrderForm(forms.Form):
     title = forms.CharField(label='Title (choose any name that helps you remember)', max_length=50, required=False)
     subject = forms.ChoiceField(
         label='Field of study', 
-        choices=SubjectList.objects.get(is_active=True).get_subject_choicelist(), 
+        choices=models.SubjectList.objects.get(is_active=True).get_subject_choicelist(), 
         )
     word_count = forms.ChoiceField(
         label='Word count (do not include references)',
-        choices=ServiceList.objects.get(is_active=True).get_wordcountrange_choicelist(),
+        choices=models.ServiceList.objects.get(is_active=True).get_wordcountrange_choicelist(),
         )
 
 
@@ -212,6 +218,7 @@ class SelectServiceForm(forms.Form):
         if words > maximum_allowed:
             raise forms.ValidationError("Please contact support submit a document of this length.")
         return words
+
 
 class SubmitOrderFreeForm(forms.Form):
     def __init__(self, *args, **kwargs):

@@ -49,6 +49,8 @@ USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
+LOGIN_URL = '/register/'
+
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_URL = os.environ['ROOT_URL']
 STATICFILES_DIRS = (

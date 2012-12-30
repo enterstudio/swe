@@ -183,8 +183,8 @@ class ManuscriptOrder(models.Model):
     # Payment properties:
     price_full = models.DecimalField(null=True, max_digits=7, decimal_places=2)
     price_after_discounts = models.DecimalField(null=True, max_digits=7, decimal_places=2)
-    coupons = models.ManyToManyField(Coupon)
-    paypal_ipn_id = models.IntegerField(null=True)
+    coupons = models.ManyToManyField(Coupon, null=True, blank=True)
+    paypal_ipn_id = models.IntegerField(null=True, blank=True)
 
     #Status properties
     datetime_submitted = models.DateTimeField(null=True)

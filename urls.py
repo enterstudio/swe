@@ -40,11 +40,6 @@ urlpatterns += patterns('',
     (r'^fj3i28/j23ifo2/a8v892/fjuw37822jir/$', include('paypal.standard.ipn.urls')),
 )
 
-urlpatterns += patterns('swe.editorviews',
-    url(r'^editor[/]?$', 'home'),
-    url(r'^editor/home[/]?$', 'home'),
-    )
-
 urlpatterns += patterns('',
     url(r'^044096020admin/', include(admin.site.urls)),
     )

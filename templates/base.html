@@ -8,6 +8,7 @@
 <link rel="shortcut icon" href="{{STATIC_URL}}favicon.ico" type="image/x-icon">
 <link rel="icon" href="{{STATIC_URL}}favicon.ico" type="image/x-icon">
 <link href="{{STATIC_URL}}css/base.css" rel="stylesheet" type="text/css">
+<link href="{{STATIC_URL}}css/messages.css" rel="stylesheet" type="text/css" />
 <link href="{{STATIC_URL}}css/bootstrap.min.css" rel="stylesheet" type="text/css" media="screen">
 <!--[if lte IE 7]><link rel="stylesheet" type="text/css" href="/media/css/ie.css" /><![endif]-->
 </head>
@@ -62,27 +63,18 @@
     
     <div class="row">
       <div class="menu-bar shadow span12">
-	{% if is_editor %}
-	{% include 'menu_editor.html' %}
-	{% else %}
 	{% include 'menu_default.html' %}
-	{% endif %}
       </div>
       
       <div class="frame span12">
 	<div class="row">
 	  <div class="page span12 shadow">
-	    {% if messages %}
 	    <div class="row">
 	      <div class="span10 offset1 messages">
-		<ul class="messages">
-		  {% for message in messages %}
-		  <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
-		  {% endfor %}
-		</ul>
+		{% load messages %}
+		{% render_messages messages %}
 	      </div>
 	    </div>
-	    {% endif %}
 	    {% block pageContent %}
 	    Welcome.
 	    {% endblock %}

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}
+Home
+{% endblock %}
+{% block pageContent %}
+<div class="row">
+  <div class="home-content span10 offset1 shadow">
+    <div class="row">
+      <div class="home-left span4">
+	<img src="{{STATIC_URL}}img/editor.jpg" height=199 width=300></img>
+      </div>
+      <div class="home-right span5 offset1">
+	<div class="row">
+	  <div class="span4">
+	    <h3>Professional English editing for technical writing</h3>
+	    <p>We proofread your manuscript and correct problems related to grammar and language.</p>
+	    <p>Our editors are experienced researchers who are fluent in English. </p>
+	  </div>
+	</div>
+	<div class="row">
+	  <div class="span5">
+	    <br>
+	    <form action="/service/" method="link" class="learn-more">
+	      <input type="submit" value="Learn More" class="btn-large" class="learn-more">
+	    </form>
+	    <form action="/order/" method="link" class="try-it">
+	      <input type="submit" value="Place an Order" class="btn-large btn-warning" class="try-it">
+	    </form>
+	  </div>
+	</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
