@@ -158,7 +158,7 @@ def order(request):
                 m.word_count_exact = None
                 m.pricepoint = None
             m.save()
-            return HttpResponseRedirect('/serviceoptions/')
+            return HttpResponseRedirect('/order/2/')
         else: # Invalid form
             messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
             return render_to_response("order/order_form.html", GlobalRequestContext(request, {'form': form}))
@@ -198,7 +198,7 @@ def serviceoptions(request):
             raise Exception('No records matched the invoice ID in the session data: invoice_id=%s' % invoice_id)
         if m.is_payment_complete:
             del request.session[u'invoice_id'] # Prevent editing an already submitted order
-            return HttpResponseRedirect('/order/')
+            return HttpResponseRedirect('/order/1/')
         else:
             if request.method == 'POST':
                 form = forms.SelectServiceForm(request.POST, invoice_id=invoice_id)
@@ -216,12 +216,12 @@ def serviceoptions(request):
 
                     m.save()
                     if request.POST.get(u'back'):
-                        return HttpResponseRedirect('/order/')
+                        return HttpResponseRedirect('/order/1/')
                     else:
-                        return HttpResponseRedirect('/uploadmanuscript/')
+                        return HttpResponseRedirect('/order/3/')
                 else: # Invalid form.
                     if request.POST.get(u'back'):
-                        return HttpResponseRedirect('/order/')
+                        return HttpResponseRedirect('/order/1/')
                     else:
                         messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
                         return render_to_response('order/service_options.html', GlobalRequestContext(request, {'form': form}))
@@ -273,7 +273,7 @@ def uploadmanuscript(request):
         messages.add_message(request, messages.ERROR, 
                              'Could not find order information. Please make sure cookies are enabled in your browser.'
                              )
-        return HttpResponseRedirect('/order/')
+        return HttpResponseRedirect('/order/1/')
     else:
         try:
             m = models.ManuscriptOrder.objects.get(invoice_id=invoice_id)
@@ -281,14 +281,14 @@ def uploadmanuscript(request):
             raise Exception('No records matched the invoice ID in the session data: invoice_id=%s' % invoice_id)
         if m.is_payment_complete:
             del request.session[u'invoice_id'] # Prevent editing an already submitted order
-            return HttpResponseRedirect('/order/')            
+            return HttpResponseRedirect('/order/1/')            
         else:
             if request.method == 'POST':
                 if request.POST.get(u'back'):
-                    return HttpResponseRedirect('/serviceoptions/')
+                    return HttpResponseRedirect('/order/2/')
                 else:
                     if m.originaldocument.is_upload_confirmed:
-                        return HttpResponseRedirect('/submit/')
+                        return HttpResponseRedirect('/order/4/')
                     else:
                         messages.error(request, 'You must upload a file to continue.')
                         return render_page(m)
@@ -305,7 +305,7 @@ def awsconfirm(request):
         messages.add_message(request, messages.ERROR, 
                              'Could not find order information. Please make sure cookies are enabled in your browser.'
                              )
-        return HttpResponseRedirect('/order/')
+        return HttpResponseRedirect('/order/1/')
     else:
         try:
             m = models.ManuscriptOrder.objects.get(invoice_id=invoice_id)
@@ -313,7 +313,7 @@ def awsconfirm(request):
             raise Exception('No records matched the invoice ID in the session data: invoice_id=%s' % invoice_id)
         if m.is_payment_complete:
             del request.session[u'invoice_id'] # Prevent editing an already submitted order
-            return HttpResponseRedirect('/order/')
+            return HttpResponseRedirect('/order/1/')
         else:
             try:
                 d = m.originaldocument
@@ -331,7 +331,7 @@ def awsconfirm(request):
             filename = parts[-1]
             if filename == '':
                 messages.add_message(request, messages.ERROR, 'Please choose a file to be uploaded.')
-                return HttpResponseRedirect('/uploadmanuscript/')
+                return HttpResponseRedirect('/order/3/')
             d.original_name = filename
             d.is_upload_confirmed = True
             d.datetime_uploaded = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
@@ -339,7 +339,7 @@ def awsconfirm(request):
             m.current_document_version = models.Document.objects.get(id=d.document_ptr_id)
             m.save()
             messages.add_message(request, messages.SUCCESS, 'The file %s was uploaded successfully.' % d.original_name)
-            return HttpResponseRedirect('/uploadmanuscript/')
+            return HttpResponseRedirect('/order/3/')
 
 
 @user_passes_test(helpers.logged_in_and_active)
@@ -350,7 +350,7 @@ def submit(request):
         messages.add_message(request, messages.ERROR, 
                              'Could not find order information. Please make sure cookies are enabled in your browser.'
                              )
-        return HttpResponseRedirect('/order/')
+        return HttpResponseRedirect('/order/1/')
     else:
         try:
             m = models.ManuscriptOrder.objects.get(invoice_id=invoice_id)
@@ -358,14 +358,14 @@ def submit(request):
             raise Exception('No records matched the invoice ID in the session data: invoice_id=%s' % invoice_id)
         if m.is_payment_complete:
             del request.session[u'invoice_id'] # Prevent editing an already submitted order
-            return HttpResponseRedirect('/order/')
+            return HttpResponseRedirect('/order/1/')
         elif not m.order_is_ready_to_submit():
             messages.error(request, 'The order is not complete. Please review the order and supply all needed information.')
-            return HttpResponseRedirect('/order/')
+            return HttpResponseRedirect('/order/1/')
         else:
             if request.method == 'POST':
                 if request.POST.get(u'back'):
-                    return HttpResponseRedirect('/uploadmanuscript/')
+                    return HttpResponseRedirect('/order/3/')
 
                 # POSTs should only come here if price is free. Payments go directly to PayPal.
                 if float(m.get_amount_to_pay()) < 0.01:

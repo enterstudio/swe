@@ -1,9 +1,10 @@
+from django.conf import settings
 from django.conf.urls import patterns, include, url
-from django.contrib.staticfiles.urls import staticfiles_urlpatterns
-from django.views.generic.create_update import create_object
 from django.contrib import admin
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
-from django.conf import settings
+from django.http import HttpResponseRedirect
+from django.views.generic.simple import redirect_to
+
 
 admin.autodiscover()
 
@@ -19,11 +20,12 @@ urlpatterns = patterns('swe.views',
     url(r'^login/$', 'login'),
     url(r'^logout/$', 'logout'),
     url(r'^account/$', 'account'),
-    url(r'^order/$', 'order'),
-    url(r'^serviceoptions/$', 'serviceoptions'),
-    url(r'^uploadmanuscript/$', 'uploadmanuscript'),
+    url(r'^order/$', redirect_to, {'url': '/order/1/'}),
+    url(r'^order/1/$', 'order'),
+    url(r'^order/2/$', 'serviceoptions'),
+    url(r'^order/3/$', 'uploadmanuscript'),
     url(r'^awsconfirm/$', 'awsconfirm'),
-    url(r'^submit/$', 'submit'),
+    url(r'^order/4/$', 'submit'),
     url(r'^privacy/$', 'privacy'),
     url(r'^terms/$', 'terms'),
     url(r'^contact/$', 'contact'),
