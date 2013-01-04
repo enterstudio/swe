@@ -128,7 +128,7 @@ def order(request):
             raise Exception('No records matched the invoice ID in the session data: invoice_id=%s' % invoice_id)
         if m.is_payment_complete:
             del request.session[u'invoice_id'] # Prevent editing an already submitted order
-            return HttpResponseRedirect('/order/')
+            return HttpResponseRedirect('/order/1/')
     if request.method == 'POST':
         if not invoice_id:
             # ManuscriptOrder is not yet defined. Create one.
@@ -190,7 +190,7 @@ def serviceoptions(request):
         messages.add_message(request, messages.ERROR, 
                              'Could not find order information. Please make sure cookies are enabled in your browser.'
                              )
-        return HttpResponseRedirect('/order/')
+        return HttpResponseRedirect('/order/1/')
     else:
         try:
             m = models.ManuscriptOrder.objects.get(invoice_id=invoice_id)
