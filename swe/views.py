@@ -454,12 +454,11 @@ def register(request):
             t_html = loader.get_template('email/activation_request.html')
             email_body = t.render(c)
             email_body_html = t_html.render(c)
-            mail = EmailMultiAlternatives(
-                subject=email_subject, 
-                body=email_body, 
-                from_email='support@sciencewritingexperts.com', 
-                to=[new_user.email], 
-                bcc=['support@sciencewritingexperts.com'])
+            mail = EmailMultiAlternatives(subject=email_subject, 
+                                          body=email_body, 
+                                          from_email='support@sciencewritingexperts.com', 
+                                          to=[new_user.email], 
+                                          )
             mail.attach_alternative(email_body_html, 'text/html')
             mail.send()
             new_profile.save()
@@ -513,7 +512,7 @@ def confirmactivation(request, activation_key=None):
                                               body=email_body, 
                                               from_email='support@sciencewritingexperts.com', 
                                               to=[userprofile.user.email], 
-                                              bcc=['support@sciencewritingexperts.com'])
+                                              )
                 mail.attach_alternative(email_body_html, 'text/html')
                 mail.send()
                 return HttpResponseRedirect('/login/')
@@ -564,10 +563,10 @@ def activationrequest(request):
             email_body = t.render(c)
             email_body_html = t_html.render(c)
             mail = EmailMultiAlternatives(subject=email_subject, 
-                         body=email_body, 
-                         from_email='support@sciencewritingexperts.com', 
-                         to=[user.email], 
-                         bcc=['support@sciencewritingexperts.com'])
+                                          body=email_body, 
+                                          from_email='support@sciencewritingexperts.com', 
+                                          to=[user.email], 
+                                          )
             mail.attach_alternative(email_body_html,'text/html')
             mail.send()
             profile.save()
@@ -608,12 +607,11 @@ def requestresetpassword(request):
             t_html = loader.get_template('email/request_reset_password.html')
             email_body = t.render(c)
             email_body_html = t_html.render(c)
-            mail = EmailMultiAlternatives(
-                subject=email_subject, 
-                body=email_body, 
-                from_email='support@sciencewritingexperts.com', 
-                to=[email], 
-                bcc=['support@sciencewritingexperts.com'])
+            mail = EmailMultiAlternatives(subject=email_subject, 
+                                          body=email_body, 
+                                          from_email='support@sciencewritingexperts.com', 
+                                          to=[email], 
+                                          )
             mail.attach_alternative(email_body_html, 'text/html')
             mail.send()
             messages.add_message(request, messages.ERROR, 'An email has been sent with instructions for resetting your password.')

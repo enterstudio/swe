@@ -153,7 +153,7 @@ class PricePoint(models.Model):
 
 
 class Coupon(models.Model):
-    # ManyToMany defined in Payment
+    # ManyToMany defined in ManuscriptOrder
     display_text = models.CharField(max_length=200)
     code = models.CharField(max_length=20)
     dollars_off = models.DecimalField(null=True, max_digits=7, decimal_places=2)
