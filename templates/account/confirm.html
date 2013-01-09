@@ -4,7 +4,7 @@
 {% if has_key %}
 <form action="/confirm/" method="post">{% csrf_token %}
 {{ form.as_p }}
-<input type="submit" value="Click to activate account" class="btn-large btn-inverse" />
+<input type="submit" value="Click to activate account" class="btn btn-large btn-inverse" />
 </form>
 {% else %}
 <p>
