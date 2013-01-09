@@ -2,7 +2,7 @@
 {% block pageContentNoFormat %}
 <h3>Submit payment</h3>
 <form action="/order/4/" method="post">{% csrf_token %}
-  <input type="submit" name="back" value="< Back" class="btn-small btn-inverse" />
+<input type="submit" name="back" value="< Back" class="btn btn-small btn-inverse" />
 </form>
 <p class="right">
   Invoice # {{ invoice_id }}
