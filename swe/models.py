@@ -6,6 +6,7 @@ import uuid
 from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
+from coupons.models import Discount
 
 
 class UserProfile(models.Model):
@@ -152,18 +153,6 @@ class PricePoint(models.Model):
         return str(self.display_text())+'|'+self.servicetype.display_text+'|'+self.wordcountrange.display_text()
 
 
-class Coupon(models.Model):
-    # ManyToMany defined in ManuscriptOrder
-    display_text = models.CharField(max_length=200)
-    code = models.CharField(max_length=20)
-    dollars_off = models.DecimalField(null=True, max_digits=7, decimal_places=2)
-    is_by_percent = models.BooleanField()
-    percent_off = models.IntegerField(null=True)
-    expiration_date = models.DateTimeField()
-    is_limited_to_select_users = models.BooleanField()
-    enabled_users = models.ManyToManyField(User)
-
-
 class ManuscriptOrder(models.Model):
     # Order properties:
     invoice_id = models.IntegerField(null=True)
@@ -183,7 +172,7 @@ class ManuscriptOrder(models.Model):
     # Payment properties:
     price_full = models.DecimalField(null=True, max_digits=7, decimal_places=2)
     price_after_discounts = models.DecimalField(null=True, max_digits=7, decimal_places=2)
-    coupons = models.ManyToManyField(Coupon, null=True, blank=True)
+    discounts = models.ManyToManyField(Discount, null=True, blank=True)
     paypal_ipn_id = models.IntegerField(null=True, blank=True)
 
     #Status properties

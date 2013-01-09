@@ -21,11 +21,22 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from paypal.standard.forms import PayPalPaymentsForm 
 from paypal.standard.ipn.forms import PayPalIPNForm
+from coupons.forms import DiscountForm
 from swe.context import GlobalRequestContext
 from swe import forms
 from swe import models
 from swe import helpers
 from swe.messagecatalog import MessageCatalog
+
+def test(request):
+    from django.contrib.gis.utils import GeoIP
+    g = GeoIP()
+    ip = request.META.get('REMOTE_ADDR', None)
+    if ip:
+        country = g.country(ip)['country_name']
+    else:
+        country = 'United States' # default city
+    import pdb; pdb.set_trace()
 
 
 def home(request):
@@ -399,6 +410,8 @@ def submit(request):
                     context["pay_button_message"] = ''
                     return render_to_response("order/submit_payment.html", GlobalRequestContext(request, context))
                 else:
+                    discountform = DiscountForm(request.user)
+                    context['discountform'] = discountform
                     paypal_dict = {
                         "business": settings.PAYPAL_RECEIVER_EMAIL,
                         "amount": invoice['amount_due'],

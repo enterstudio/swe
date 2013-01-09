@@ -2,7 +2,7 @@
 {% block pageContentNoFormat %}
 <h3>Submit payment</h3>
 <form action="/order/4/" method="post">{% csrf_token %}
-<input type="submit" name="back" value="< Back" class="btn-small btn-inverse" />
+  <input type="submit" name="back" value="< Back" class="btn-small btn-inverse" />
 </form>
 <p class="right">
   Invoice # {{ invoice_id }}
@@ -47,6 +47,18 @@
     </td>
   </tr>
 </table>
+{% if discountform %}
+<div class="left">
+  <form action="/order/4/" method="post">{% csrf_token %}
+    <span class="radio">
+      {{ discountform.as_p }}
+    </span>
+    <input type="submit" name="apply-discounts" value="Apply discount" class="btn-small">
+    <br>
+    <span class="subtle">max 1 per order</span>
+  </form>
+</div>
+{% endif %}
 <div class="center">
   <p>
   {{ pay_button_message }}

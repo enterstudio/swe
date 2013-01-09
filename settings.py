@@ -53,6 +53,9 @@ LOGIN_URL = '/register/'
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_URL = os.environ['ROOT_URL']
+
+GEOIP_PATH = os.path.join(ROOT_DIR, 'geoip/')
+
 STATICFILES_DIRS = (
     os.path.join(ROOT_DIR, 'static/'),
 )
@@ -157,6 +160,7 @@ INSTALLED_APPS = (
     # Uncomment the next line to enable admin documentation:
     # 'django.contrib.admindocs',
     'swe',
+    'coupons',
 )
 
 

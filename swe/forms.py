@@ -203,7 +203,7 @@ class SelectServiceForm(forms.Form):
         self.fields[u'servicetype'].choices = manuscriptorder.wordcountrange.get_pricepoint_choicelist()
         if manuscriptorder.wordcountrange.max_words is not None:
             # A definite word count range is already specified. Drop the field.
-            del(self.fields['word_count_exact'])
+            del(self.fields[u'word_count_exact'])
             
     def clean_word_count_exact(self):
         manuscriptorder = models.ManuscriptOrder.objects.get(invoice_id=self.invoice_id)
