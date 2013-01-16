@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 # Django settings for swe project.
 import os
 
@@ -21,7 +24,7 @@ TEMPLATE_DEBUG = DEBUG
 
 ADMINS = (
     ('Nathan Hammond', 'support@sciencewritingexpets.com'),
-)
+    )
 
 MANAGERS = ADMINS
 
@@ -44,12 +47,18 @@ else:
 
 TIME_ZONE = 'America/Los_Angeles'
 LANGUAGE_CODE = 'en-us'
+LOCALES = (
+    #English
+    ('en', u'English'),
+    #Simplified Chinese
+    ('zh-cn', u'简体中文'),
+)
 SITE_ID = 1
 USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
-LOGIN_URL = '/register/'
+LOGIN_URL = '/login/'
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_URL = os.environ['ROOT_URL']
@@ -58,13 +67,13 @@ GEOIP_PATH = os.path.join(ROOT_DIR, 'geoip/')
 
 STATICFILES_DIRS = (
     os.path.join(ROOT_DIR, 'static/'),
-)
+    )
 
 STATICFILES_FINDERS = (
     'django.contrib.staticfiles.finders.FileSystemFinder',
     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
 #    'django.contrib.staticfiles.finders.DefaultStorageFinder',
-)
+    )
 
 LOCAL_STORAGE = False
 try:
@@ -121,29 +130,40 @@ TEMPLATE_LOADERS = (
     'django.template.loaders.filesystem.Loader',
     'django.template.loaders.app_directories.Loader',
 #     'django.template.loaders.eggs.Loader',
-)
+    )
 
 MIDDLEWARE_CLASSES = (
     'django.middleware.common.CommonMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.transaction.TransactionMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     # Uncomment the next line for simple clickjacking protection:
     # 'django.middleware.clickjacking.XFrameOptionsMiddleware',
-)
+    )
 
 ROOT_URLCONF = 'urls'
 
 # Python dotted path to the WSGI application used by Django's runserver.
 WSGI_APPLICATION = 'wsgi.application'
 
+TEMPLATE_CONTEXT_PROCESSORS = (
+    "django.contrib.auth.context_processors.auth",
+    "django.core.context_processors.debug",
+    "django.core.context_processors.i18n",
+    "django.core.context_processors.media",
+    "django.core.context_processors.static",
+    "django.contrib.messages.context_processors.messages",
+    'swe.context_processors.global_context',
+    )
+
 TEMPLATE_DIRS = (
     os.path.join(ROOT_DIR, 'templates'),
     os.path.join(ROOT_DIR, 'templates', 'email'),
     os.path.join(ROOT_DIR, 'templates', 'errors'),
-)
+    )
 
 INSTALLED_APPS = (
     'django.contrib.auth',
@@ -161,7 +181,7 @@ INSTALLED_APPS = (
     # 'django.contrib.admindocs',
     'swe',
     'coupons',
-)
+    )
 
 
 

@@ -1,3 +1,4 @@
+from decimal import Decimal, ROUND_UP
 import datetime
 import logging
 import os
@@ -6,7 +7,12 @@ import uuid
 from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
-from coupons.models import Discount
+from django.utils.translation import ugettext as _
+from coupons.models import DiscountClaim
+
+
+def nearest_cent(x):
+    return Decimal(x).quantize(Decimal('1.00'), rounding=ROUND_UP)
 
 
 class UserProfile(models.Model):
@@ -45,14 +51,14 @@ class SubjectList(models.Model):
 
     def get_subject_choicelist(self):
         categories = self.subjectcategory_set.all().order_by('display_order')
-        choicelist = [('', '-- Select field of study --')]
+        choicelist = [('', _('-- Select field of study --'))]
         for category in categories:
             choicegroup = []
             subjects = category.subject_set.all().order_by('display_order')
             for subject in subjects:
                 if subject.is_enabled:
-                    choicegroup.append((subject.pk,subject.display_text))
-            choicelist.append((category.display_text.upper(), choicegroup))
+                    choicegroup.append((subject.pk,_(subject.display_text)))
+            choicelist.append((_(category.display_text.upper()), choicegroup))
         return choicelist
 
     def __unicode__(self):
@@ -84,9 +90,9 @@ class ServiceList(models.Model):
 
     def get_wordcountrange_choicelist(self):
         wordcounts = self.wordcountrange_set.all().order_by('max_words')
-        choicelist = [('', '-- Select word count --')]
+        choicelist = [('', _('-- Select word count --'))]
         for wordcount in wordcounts:
-            choicelist.append((wordcount.pk, wordcount.display_text()))
+            choicelist.append( (wordcount.pk, wordcount.display_text()) )
         return choicelist
 
     def __unicode__(self):
@@ -103,21 +109,24 @@ class WordCountRange(models.Model):
         choicelist = [('','-- Select service type --')]
         for pricepoint in pricepoints:
             servicetype = pricepoint.servicetype
-            display_text = servicetype.display_text+'  ('+pricepoint.display_text()+')'
+            display_text = _(servicetype.display_text)+'  ('+pricepoint.display_text()+')'
             choicelist.append((pricepoint.pk, display_text))
         return choicelist
 
     def display_text(self):
         if self.min_words is None:
             if self.max_words is None:
-                text = 'Any word count'
+                text = _('Any word count')
             else:
-                text = 'Fewer than '+str(self.max_words)+' Words'
+                # Translator: Used in phrase "Fewer than ## words"
+                text = _('Fewer than ')+str(self.max_words)+' '+_('Words')
         else:
             if self.max_words is None:
-                text = 'More than '+str(self.min_words)+' Words'
+                # Translator: Used in phrase "More than ## words"
+                text = _('More than')+' '+str(self.min_words)+' '+_('Words')
             else:
-                text = str(self.min_words)+' - '+str(self.max_words)+' words'
+                # Translator: used in phrase "## - ## words"
+                text = str(self.min_words)+' - '+str(self.max_words)+' '+_('Words')
         return text
 
     def __unicode__(self):
@@ -145,12 +154,12 @@ class PricePoint(models.Model):
 
     def display_text(self):
         if self.is_price_per_word:
-            return ('$%.3f per word' % self.dollars_per_word)
+            return (_('$%(amount).3f per word') % {'amount': self.dollars_per_word})
         else:
-            return ('$%.2f' % self.dollars)
+            return ('$%(amount).2f' % {'amount': self.dollars})
 
     def __unicode__(self):
-        return str(self.display_text())+'|'+self.servicetype.display_text+'|'+self.wordcountrange.display_text()
+        return self.display_text()+'|'+_(self.servicetype.display_text)+'|'+self.wordcountrange.display_text()
 
 
 class ManuscriptOrder(models.Model):
@@ -172,7 +181,7 @@ class ManuscriptOrder(models.Model):
     # Payment properties:
     price_full = models.DecimalField(null=True, max_digits=7, decimal_places=2)
     price_after_discounts = models.DecimalField(null=True, max_digits=7, decimal_places=2)
-    discounts = models.ManyToManyField(Discount, null=True, blank=True)
+    discount_claims = models.ManyToManyField(DiscountClaim, null=True, blank=True)
     paypal_ipn_id = models.IntegerField(null=True, blank=True)
 
     #Status properties
@@ -194,25 +203,28 @@ class ManuscriptOrder(models.Model):
 
     def get_service_description(self):
         if self.word_count_exact is not None:
-            word_count_text = str(self.word_count_exact)+" words"
+                             # Translator: used in phrase "Editing services, # words, service type"
+            word_count_text = str(self.word_count_exact)+" "+_("words")
         else:
             word_count_text = self.wordcountrange.display_text()
-        return "Editing services, "+word_count_text+", "+self.servicetype.display_text
+        return _("Editing services")+", "+word_count_text+", "+self.servicetype.display_text
 
     def calculate_price(self):
         if self.pricepoint.is_price_per_word:
             self.price_full = self.pricepoint.dollars_per_word * self.word_count_exact
         else:
             self.price_full = self.pricepoint.dollars
-        discounts = 0 #TODO
-        self.price_after_discounts = self.price_full - discounts
+        discount = 0;
+        active_claims = self.discount_claims.all()
+        for claim in active_claims:
+            discount += claim.discount.get_dollars_off(self.price_full)
+        self.price_after_discounts = self.price_full - discount
 
     def get_amount_to_pay(self):
-        if self.price_after_discounts == None:
+        amount = self.price_after_discounts
+        if amount == None:
             raise Exception('Payment amount is not defined.')
-        if (self.price_after_discounts<0):
-            raise Exception('Invalid payment amount: %s' % self.price_after_discounts)
-        return "%.2f" % self.price_after_discounts
+        return nearest_cent(max(0,self.price_after_discounts))
 
     def order_received_now(self):
         self.datetime_submitted=datetime.datetime.utcnow().replace(tzinfo=timezone.utc)

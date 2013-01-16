@@ -6,7 +6,7 @@
     <p>
       Don't have an account yet? <a href="/register/">Register here</a>.
     </p>
-    <form action="/login/" method="post" enctype="multipart/form-data">{% csrf_token %}
+    <form action="/login/{% if redirect_to %}?next={{ redirect_to }}{% endif %}" method="post" enctype="multipart/form-data">{% csrf_token %}
       <table class="tbl-left">
 	{{ form.as_table }}
 	<tr>

@@ -8,30 +8,30 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.template.defaultfilters import filesizeformat
 from django.utils import timezone
-from django.utils.safestring import mark_safe
+from django.utils.translation import ugettext_lazy as _
 from swe import models
 
 
 class RegisterForm(forms.Form):
     first_name = forms.CharField(
-        label='First Name',
+        label=_('First Name'),
         max_length=30,
         )
     last_name = forms.CharField(
-        label='Last Name',
+        label=_('Last Name'),
         max_length=30,
         )
     email = forms.EmailField(
-        label='Email address', 
+        label=_('Email address'), 
         max_length = 30,
         )
     password = forms.CharField(
-        label='Password',
+        label=_('Password'),
         max_length = 30,
         widget=forms.PasswordInput,
         )
     password_confirm = forms.CharField(
-        label='Password again',
+        label=_('Password again'),
         max_length = 30,
         widget=forms.PasswordInput,
         )
@@ -39,7 +39,7 @@ class RegisterForm(forms.Form):
     def clean(self):
         cleaned_data = super(RegisterForm,self).clean()
         if cleaned_data.get('password') != cleaned_data.get('password_confirm'):
-            raise forms.ValidationError('The passwords do not match')
+            raise forms.ValidationError(_('The passwords do not match.'))
         return cleaned_data
 
     def clean_email(self):
@@ -54,17 +54,17 @@ class RegisterForm(forms.Form):
             except User.DoesNotExist:
                 return email
 
-        raise forms.ValidationError("This email address is already registered.")
+        raise forms.ValidationError(_("This email address is already registered."))
         return email
 
 
 class LoginForm(forms.Form):
     email = forms.CharField(
-        label='Email address', 
+        label=_('Email address'), 
         max_length=30,
         )
     password = forms.CharField(
-        label='Password', 
+        label=_('Password'), 
         max_length=30, 
         widget=forms.PasswordInput,
         )
@@ -72,7 +72,7 @@ class LoginForm(forms.Form):
 
 class RequestResetPasswordForm(forms.Form):
     email = forms.CharField(
-        label='Email address', 
+        label=_('Email address'), 
         max_length=30,
         )
 
@@ -83,11 +83,11 @@ class ResetPasswordForm(forms.Form):
         max_length=40,
         )
     email = forms.EmailField(
-        label='Email address', 
+        label=_('Email address'), 
         max_length = 30,
         )
     password = forms.CharField(
-        label='New password',
+        label=_('New password'),
         max_length = 30,
         widget=forms.PasswordInput,
         )
@@ -101,33 +101,33 @@ class ResetPasswordForm(forms.Form):
     def clean(self):
         cleaned_data = super(ResetPasswordForm,self).clean()
         if cleaned_data.get('password') != cleaned_data.get('password_confirm'):
-            raise forms.ValidationError('The passwords do not match')
+            raise forms.ValidationError(_('The passwords do not match.'))
         try:
             userprofile = models.UserProfile.objects.get(resetpassword_key=cleaned_data.get('resetpassword_key'))
         except models.UserProfile.DoesNotExist:
-            raise forms.ValidationError('This request is not valid. Please submit a new request to reset your password.')
+            raise forms.ValidationError(_('This request is not valid. Please submit a new request to reset your password.'))
         if userprofile.resetpassword_expires < datetime.datetime.utcnow().replace(tzinfo=timezone.utc):
-            raise forms.ValidationError('This request has expired. Please submit a new request to reset your password.')
+            raise forms.ValidationError(_('This request has expired. Please submit a new request to reset your password.'))
         if userprofile.user.email != cleaned_data.get('email'):
             raise forms.ValidationError(
-                'This request is not valid for the email address provied. '+
-                'Please correct the email address or submit a new request to reset your password.')
+                _('This request is not valid for the email address provied. '+
+                'Please correct the email address or submit a new request to reset your password.'))
         return cleaned_data
 
 
 class ChangePasswordForm(forms.Form):    
     old_password = forms.CharField(
-        label='Old password',
+        label=_('Old password'),
         max_length = 30,
         widget=forms.PasswordInput,
         )
     new_password = forms.CharField(
-        label='New password',
+        label=_('New password'),
         max_length = 30,
         widget=forms.PasswordInput,
         )
     password_confirm = forms.CharField(
-        label='New password again',
+        label=_('New password again'),
         max_length = 30,
         widget=forms.PasswordInput,
         )
@@ -139,15 +139,15 @@ class ChangePasswordForm(forms.Form):
     def clean(self):
         cleaned_data = super(ChangePasswordForm,self).clean()
         if cleaned_data.get('new_password') != cleaned_data.get('password_confirm'):
-            raise forms.ValidationError('The passwords do not match')
+            raise forms.ValidationError(_('The passwords do not match.'))
         if not self.user.check_password(cleaned_data.get('old_password')):
-            raise forms.ValidationError('The password is incorrect')
+            raise forms.ValidationError(_('The password is incorrect.'))
         return cleaned_data
 
 
 class ConfirmForm(forms.Form):
     activation_key = forms.CharField(
-        label='Activation Key', 
+        label=_('Activation Key'), 
         max_length=40,
         widget=forms.HiddenInput,
         )
@@ -155,7 +155,7 @@ class ConfirmForm(forms.Form):
 
 class ActivationRequestForm(forms.Form):
     email = forms.CharField(
-        label='Email address',
+        label=_('Email address'),
         max_length=30,
         )
 
@@ -168,29 +168,29 @@ class ActivationRequestForm(forms.Form):
             u = User.objects.get(username=email)
             # Verify that account is not already active.
             if u.is_active:
-                raise forms.ValidationError("This account has already been activated.")
+                raise forms.ValidationError(_("This account has already been activated."))
         except User.DoesNotExist:
-            raise forms.ValidationError("This email address is not registered.")
+            raise forms.ValidationError(_("This email address is not registered."))
 
         return email
 
 
 class OrderForm(forms.Form):
-    title = forms.CharField(label='Title (choose any name that helps you remember)', max_length=50, required=False)
+    title = forms.CharField(label=_('Title (choose any name that helps you remember)'), max_length=50, required=False)
     subject = forms.ChoiceField(
-        label='Field of study', 
+        label=_('Field of study'), 
         choices=models.SubjectList.objects.get(is_active=True).get_subject_choicelist(), 
         )
     word_count = forms.ChoiceField(
-        label='Word count (do not include references)',
+        label=_('Word count (do not include references)'),
         choices=models.ServiceList.objects.get(is_active=True).get_wordcountrange_choicelist(),
         )
 
 
 class SelectServiceForm(forms.Form):
     invoice_id = None
-    servicetype = forms.ChoiceField(label='Type of service')
-    word_count_exact = forms.IntegerField(label = 'Number of words in the manuscript (excluding references)')
+    servicetype = forms.ChoiceField(label=_('Type of service'))
+    word_count_exact = forms.IntegerField(label = _('Number of words in the manuscript (excluding references)'))
     def __init__(self, *args, **kwargs):
         # Invoice_id must be in kwargs
         try:

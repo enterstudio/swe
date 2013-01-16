@@ -47,18 +47,52 @@
     </td>
   </tr>
 </table>
-{% if discountform %}
-<div class="left">
-  <form action="/order/4/" method="post">{% csrf_token %}
-    <span class="radio">
-      {{ discountform.as_p }}
-    </span>
-    <input type="submit" name="apply-discounts" value="Apply discount" class="btn-small">
-    <br>
+
+{% if show_discounts %}
+<div class="row">
+  <div class="span4 offset6">
+    <h5>Promotional discounts</h5>
     <span class="subtle">max 1 per order</span>
-  </form>
+
+    <table>
+      {% if dropforms %}
+      <tr>
+	<form action="/order/4/" method="post">{% csrf_token %}
+	  <td>
+	    {% for row in dropforms %}{{ row.label }}{% for field in row.form %}{{field}}{% endfor %}{% endfor %}
+	  </td>
+	  <td>
+	    <input type="submit" name="remove" value="Remove" class="btn btn-small">
+	  </td>
+	</form>
+      {% endif %}
+      {% if selectdiscountform %}
+      <tr>
+	<form action="/order/4/" method="post">{% csrf_token %}
+	  <td>
+	    {% for field in selectdiscountform %}{{field}}{% endfor %}
+	  </td>
+	  <td>
+	    <input type="submit" name="select" value="Apply" class="btn btn-small">
+	  </td>
+	</form>
+      </tr>
+      {% endif %}
+      <tr>
+	<form action="/order/4/" method="post">{% csrf_token %}
+	  <td>
+	    {% for field in claimdiscountform %}{{field.errors}}{{field}}{% endfor %}
+	  </td>
+	  <td>
+	    <input type="submit" name="claim" value="Apply" class="btn btn-small">
+	  </td>
+	</form>
+      </tr>
+    </table>
+  </div>
 </div>
 {% endif %}
+
 <div class="center">
   <p>
   {{ pay_button_message }}

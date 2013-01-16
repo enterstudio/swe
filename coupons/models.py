@@ -1,5 +1,12 @@
+import datetime
+from decimal import Decimal, ROUND_UP
 from django.contrib.auth.models import User
 from django.db import models
+from django.utils import timezone
+
+
+def nearest_cent(x):
+    return Decimal(x).quantize(Decimal('1.00'), rounding=ROUND_UP)
 
 
 class EmailDomain(models.Model):
@@ -7,6 +14,17 @@ class EmailDomain(models.Model):
 
     def __unicode__(self):
         return self.domain
+
+
+class Referral(models.Model):
+    referred_user = models.ForeignKey(User, null=True, blank=True, related_name='has_been_referred')
+    referred_email = models.CharField(max_length=100, null=True, blank=True)
+    referred_by = models.ForeignKey(User, null=True, blank=True, related_name='has_made_referral')
+    reffered_by_email = models.CharField(max_length=100, null=True, blank=True)
+    is_activated = models.BooleanField(default=False)
+
+    def __unicode__(self):
+        return '%s referred %s' % (self.referred_by_email, self.new_user)
 
 
 class UserFilter(models.Model):
@@ -22,7 +40,7 @@ class UserFilter(models.Model):
 
 class Discount(models.Model):
     display_text = models.CharField(max_length=200)
-    coupon_code = models.CharField(max_length=20, null=True, blank=True)
+    promotional_code = models.CharField(max_length=20, null=True, blank=True)
     # discount amount
     dollars_off = models.DecimalField(null=True, blank=True, max_digits=7, decimal_places=2)
     is_by_percent = models.BooleanField()
@@ -32,6 +50,34 @@ class Discount(models.Model):
     default_use_by_date = models.DateTimeField(null=True, blank=True, default=None)
     default_use_by_timedelta = models.DateTimeField(null=True, blank=True, default=None)
     userfilters = models.ManyToManyField(UserFilter, null=True, blank=True)
+    multiple_use_allowed = models.BooleanField(default=False)
+
+    def is_available_to_user(self, user):
+        now = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
+        if self.expiration_date > now:
+            return True
+        # TODO does it pass the user filters?           
+        return False
+
+    def claim_discount(self, user):
+        now = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
+        c = DiscountClaim(
+            discount=self,
+            customer=user,
+            date_claimed=now,
+        )
+        if self.default_use_by_date:
+            c.use_by_date = self.default_use_by_date
+        elif self.default_use_by_timedelta:
+            c.use_by_date = self.use_by_timedelta+now
+        c.save()
+        return c
+
+    def get_dollars_off(self, full_price):
+        if self.is_by_percent:
+            return nearest_cent(float(full_price) * float(self.percentoff) / 100.0)
+        else:
+            return nearest_cent(self.dollars_off)
 
     def __unicode__(self):
         return self.display_text
@@ -43,7 +89,6 @@ class DiscountClaim(models.Model):
     date_claimed = models.DateTimeField()
     date_used = models.DateTimeField(null=True, blank=True)
     use_by_date = models.DateTimeField(null=True, blank=True)
-    multiple_use_allowed = models.BooleanField(default=False)
 
     def __unicode__(self):
         return '%s' % self.discount
@@ -55,4 +100,4 @@ class FeaturedDiscount(models.Model):
     offer_ends = models.DateTimeField()
     
     def __unicode__(self):
-        return self.discount
+        return '%s' % self.discount

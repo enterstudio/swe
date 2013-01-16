@@ -1,6 +1,54 @@
 {% extends "plain.html" %}
 {% block pageContentNoFormat %}
 <h3>Account</h3>
-<p>{{ user.username }}</p>
-<a href="/changepassword/">Change password</a>
+<h4>Settings</h4>
+<table class="table">
+  <tr>
+    <th>Name:</th>
+    <td>{{user.first_name}} {{user.last_name}}</td>
+    <td></td>
+  </tr>
+  <tr>
+    <th>Email address:</th>
+    <td>{{ user.username }}</td>
+    <td></td>
+  </tr>
+  <tr>
+    <th>Password:</th>
+    <td>********</td>
+    <td><a href="/changepassword/">change</a></td>
+  </tr>
+</table>
+<h4>Discounts</h4>
+{% if discounts %}
+<table class="table">
+{% for discount in discounts %}
+<tr>
+<td>{{ discount.discount.display_text }}</td>
+<td>
+  {% if discount.use_by_date %}
+  Expires {{ discount.use_by_date|date:'M d, Y' }}</td>
+  {% endif %}
+</tr>
+{% endfor %}
+</table>
+{% endif %}
+<div class="center"><a href="/claimdiscount/">Use a coupon code to claim a discount</a></div>
+<h4>Orders</h4>
+{% if orders %}
+<table class="table">
+{% for order in orders %}
+<tr>
+<td>#{{ order.invoice_id }}</td>
+<td>{{ order.get_service_description }}</td>
+<td>{{ order.datetime_submitted|date:'M d, Y' }}</td>
+<td></td>
+<td></td>
+</tr>
+{% endfor %}
+</table>
+{% endif %}
+<div class="center"><a href="/order/">Place an order</a></div>
 {% endblock %}
+
+
