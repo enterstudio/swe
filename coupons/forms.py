@@ -36,6 +36,24 @@ class ClaimDiscountForm(forms.Form):
         else:
             raise forms.ValidationError(_("This promotional code is not available."))
 
+class ClaimOrSelectDiscountForm(ClaimDiscountForm):
+    def __init__(self, user, *args, **kwargs):
+        super(ClaimOrSelectDiscountForm, self).__init__(user, *args, **kwargs)
+        self.user = user
+
+    def clean_promotional_code(self):
+        promotional_code = self.cleaned_data[u'promotional_code']
+        try:
+            discount = coupons.models.Discount.objects.get(promotional_code=promotional_code)
+        except coupons.models.Discount.DoesNotExist:
+            raise forms.ValidationError(_("This promotional code is not available."))
+        if discount.is_available_to_user(self.user):
+            return promotional_code
+        elif discount.is_claimed_by_user(self.user):
+            return promotional_code
+        else:
+            raise forms.ValidationError(_("This promotional code is not available."))
+
 
 class RemoveDiscountForm(forms.Form):
         discount = forms.CharField( 

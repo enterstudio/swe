@@ -46,6 +46,8 @@ def test(request):
 
 
 def home(request):
+    if not request.user.is_authenticated():
+        helpers.check_for_promotion(request)
     return render_to_response("home/home.html", RequestContext(request, {}))
 
 
@@ -353,7 +355,7 @@ def submit(request):
                 selectdiscountform = None
         context['selectdiscountform'] = selectdiscountform
         if not claimdiscountform:
-            claimdiscountform = coupons.forms.ClaimDiscountForm(request.user)
+            claimdiscountform = coupons.forms.ClaimOrSelectDiscountForm(request.user)
         context['claimdiscountform'] = claimdiscountform
         m.calculate_price()
         m.save()
@@ -434,9 +436,19 @@ def submit(request):
                 m.save()
                 return render_page(request, m)
         if request.POST.get(u'claim'):
-            claimdiscountform=coupons.forms.ClaimDiscountForm(request.user, request.POST)
+            claimdiscountform=coupons.forms.ClaimOrSelectDiscountForm(request.user, request.POST)
             if claimdiscountform.is_valid():
                 code = claimdiscountform.cleaned_data[u'promotional_code']
+                try:
+                    already_claimed = coupons.models.Discount.objects.get(promotional_code=code).is_claimed_by_user(request.user)
+                    if already_claimed:
+                        # can't claim again, but select it
+                        m.discount_claims.clear()
+                        m.discount_claims.add(already_claimed.pk)
+                        m.save()
+                        return render_page(request, m)
+                except coupons.models.Discount.DoesNotExist:
+                    Exception('Discount code was validated in form, but we could not find it.')
                 claim = coupons.claim_discount(request, request.user, code)
                 messages.add_message(request, messages.SUCCESS, _('This discount has been claimed for your account.'))
                 m.discount_claims.clear()
@@ -444,6 +456,7 @@ def submit(request):
                 m.save()
                 return render_page(request, m)
             else:
+                messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
                 return render_page(request, m, claimdiscountform=claimdiscountform) # With errors
         if request.POST.get(u'submit-order'):
             # POSTs should only come here if price is free. Payments go directly to PayPal.

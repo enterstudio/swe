@@ -51,12 +51,23 @@ class Discount(models.Model):
     default_use_by_timedelta = models.DateTimeField(null=True, blank=True, default=None)
     userfilters = models.ManyToManyField(UserFilter, null=True, blank=True)
     multiple_use_allowed = models.BooleanField(default=False)
+    persists_after_use = models.BooleanField(default=False)
 
     def is_available_to_user(self, user):
         now = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
-        if self.expiration_date > now:
-            return True
+        if self.expiration_date < now:
+            return False
+        if self.is_claimed_by_user(user):
+            # Duplicate claim
+            return False
         # TODO does it pass the user filters?           
+        return True
+
+    def is_claimed_by_user(self, user):
+        claims = user.discountclaim_set.all()
+        for i in range(claims.count()):
+            if self.pk == claims[i].discount.pk:
+                return claims[i]
         return False
 
     def claim_discount(self, user):
@@ -96,6 +107,7 @@ class DiscountClaim(models.Model):
 
 class FeaturedDiscount(models.Model):
     discount = models.ForeignKey(Discount)
+    promotional_text = models.CharField(max_length=200, null=True, blank=True)
     offer_begins = models.DateTimeField()
     offer_ends = models.DateTimeField()
     

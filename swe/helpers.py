@@ -123,3 +123,10 @@ def register_user(request, username, email, password, first_name, last_name):
     mail.send()
     new_profile.save()
     coupons.claim_featured_discounts(request, new_user)
+
+def check_for_promotion(request):
+    now = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
+    offers = coupons.models.FeaturedDiscount.objects.filter(offer_begins__lt=now).filter(offer_ends__gt=now)
+    for offer in offers:
+        messages.add_message(request, messages.WARNING, offer.promotional_text)
+

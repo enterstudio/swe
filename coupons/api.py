@@ -27,7 +27,7 @@ def _add_message(request, msg_type, msg, fail_silent):
 
 
 def claim_discount_by_object(request, user, discount, fail_silent=False):
-    if not discount.is_available_to_user(request.user):
+    if not discount.is_available_to_user(user):
         _add_message(request, messages.ERROR, 'We are sorry, but the discount "%s" has expired.' % discount.display_text, fail_silent)
         return
     claim = discount.claim_discount(user)
