@@ -48,7 +48,7 @@ class Discount(models.Model):
     # validity limits
     expiration_date = models.DateTimeField() #applies when claiming, not when redeeming
     default_use_by_date = models.DateTimeField(null=True, blank=True, default=None)
-    default_use_by_timedelta = models.DateTimeField(null=True, blank=True, default=None)
+    default_use_by_days = models.FloatField(null=True, blank=True, default=None)
     userfilters = models.ManyToManyField(UserFilter, null=True, blank=True)
     multiple_use_allowed = models.BooleanField(default=False)
     persists_after_use = models.BooleanField(default=False)
@@ -79,8 +79,8 @@ class Discount(models.Model):
         )
         if self.default_use_by_date:
             c.use_by_date = self.default_use_by_date
-        elif self.default_use_by_timedelta:
-            c.use_by_date = self.use_by_timedelta+now
+        elif self.default_use_by_days:
+            c.use_by_date = now + datetime.timedelta(days=self.default_use_by_days)
         c.save()
         return c
 

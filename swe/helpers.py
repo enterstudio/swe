@@ -8,6 +8,7 @@ from django.core.mail import EmailMultiAlternatives
 from django.http import HttpResponseRedirect
 from django.template import loader, Context, RequestContext
 from django.utils import timezone
+from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 from paypal.standard.ipn.signals import payment_was_successful
 from swe import models
@@ -127,6 +128,7 @@ def register_user(request, username, email, password, first_name, last_name):
 def check_for_promotion(request):
     now = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
     offers = coupons.models.FeaturedDiscount.objects.filter(offer_begins__lt=now).filter(offer_ends__gt=now)
+    signup_link = mark_safe(' <a href="/register/">Sign up now!</a>')
     for offer in offers:
-        messages.add_message(request, messages.WARNING, offer.promotional_text)
+        messages.add_message(request, messages.WARNING, offer.promotional_text+signup_link)
 

@@ -227,8 +227,13 @@ class ManuscriptOrder(models.Model):
         return nearest_cent(max(0,self.price_after_discounts))
 
     def order_received_now(self):
-        self.datetime_submitted=datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
-        self.datetime_due = datetime.datetime.utcnow().replace(tzinfo=timezone.utc) + datetime.timedelta(self.servicetype.hours_until_due/24)
+        now = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
+        self.datetime_submitted = now
+        self.datetime_due = now + datetime.timedelta(days=self.servicetype.hours_until_due/24)
+        claims = self.discount_claims.all()
+        for claim in claims:
+            if not claim.discount.persists_after_use:
+                claim.date_used = now
 
     def order_is_ready_to_submit(self):
         #Verify that required fields are defined
@@ -246,6 +251,14 @@ class ManuscriptOrder(models.Model):
             file_is_uploaded
             )
         return is_ready
+
+    def add_discount_claim(self, new_claim):
+        if not new_claim.discount.multiple_use_allowed:
+            old_claims = self.discount_claims.all()
+            for old_claim in old_claims:
+                if not old_claim.discount.multiple_use_allowed:
+                    self.discount_claims.remove(old_claim)
+        self.discount_claims.add(new_claim)
             
     def __unicode__(self):
         return self.title

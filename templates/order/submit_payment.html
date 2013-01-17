@@ -55,17 +55,19 @@
     <span class="subtle">max 1 per order</span>
 
     <table>
-      {% if dropforms %}
+      {% for row in dropforms %}
       <tr>
 	<form action="/order/4/" method="post">{% csrf_token %}
 	  <td>
-	    {% for row in dropforms %}{{ row.label }}{% for field in row.form %}{{field}}{% endfor %}{% endfor %}
+	    {{ row.label }}{% for field in row.form %}{{field}}{% endfor %}
 	  </td>
 	  <td>
 	    <input type="submit" name="remove" value="Remove" class="btn btn-small">
 	  </td>
 	</form>
-      {% endif %}
+      </tr>
+      {% endfor %}
+
       {% if selectdiscountform %}
       <tr>
 	<form action="/order/4/" method="post">{% csrf_token %}

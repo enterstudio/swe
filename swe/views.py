@@ -139,7 +139,7 @@ def logout(request):
 @user_passes_test(helpers.logged_in_and_active, login_url='/login/')
 @user_passes_test(helpers.is_service_available, login_url='/comebacksoon/')
 def account(request):
-    discounts = coupons.get_discounts_claimed_by_user(request.user)
+    discounts = coupons.get_active_discounts_claimed_by_user(request.user)
     orders = request.user.manuscriptorder_set.all()
     return render_to_response(
         "account/account.html", 
@@ -348,7 +348,7 @@ def submit(request):
             exclude_list = []
             for discount in m.discount_claims.all():
                 exclude_list.append(discount.pk)
-            available_claims = request.user.discountclaim_set.exclude(pk__in=exclude_list)
+            available_claims = coupons.get_active_discounts_claimed_by_user(request.user).exclude(pk__in=exclude_list)
             if available_claims:
                 selectdiscountform = coupons.forms.SelectDiscountForm(request.user, available_claims=available_claims)
             else:
@@ -426,9 +426,8 @@ def submit(request):
             available_claims = request.user.discountclaim_set.all()
             selectdiscountform = coupons.forms.SelectDiscountForm(request.user, available_claims, request.POST)
             if selectdiscountform.is_valid():
-                new_data = selectdiscountform.cleaned_data            
-                m.discount_claims.clear()
-                m.discount_claims.add(new_data[u'discount'])
+                new_data = selectdiscountform.cleaned_data
+                m.add_discount_claim(new_data[u'discount'])
                 m.save()
                 return render_page(request, m)
             else:
@@ -443,16 +442,13 @@ def submit(request):
                     already_claimed = coupons.models.Discount.objects.get(promotional_code=code).is_claimed_by_user(request.user)
                     if already_claimed:
                         # can't claim again, but select it
-                        m.discount_claims.clear()
-                        m.discount_claims.add(already_claimed.pk)
+                        m.add_discount_claim(already_claimed)
                         m.save()
                         return render_page(request, m)
                 except coupons.models.Discount.DoesNotExist:
                     Exception('Discount code was validated in form, but we could not find it.')
                 claim = coupons.claim_discount(request, request.user, code)
-                messages.add_message(request, messages.SUCCESS, _('This discount has been claimed for your account.'))
-                m.discount_claims.clear()
-                m.discount_claims.add(claim)
+                m.add_discount_claim(claim)
                 m.save()
                 return render_page(request, m)
             else:
@@ -490,8 +486,8 @@ def register(request):
                 first_name = new_data[u'first_name'],
                 last_name = new_data['last_name'],
                 )
-            messages.add_message(request,messages.SUCCESS,
-                _('An activation key has been sent to your email address.'))
+            messages.add_message(request,messages.WARNING,
+                _('An activation key has been sent to your email address. Please check your email to finish creating your account.'))
             return HttpResponseRedirect('/confirm/')
         else:
             messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
