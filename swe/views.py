@@ -513,13 +513,13 @@ def register(request):
         if form.is_valid():
             new_data = form.cleaned_data
             new_user = User.objects.create_user(
-                username = new_data[u'email'],
-                email = new_data[u'email'],
-                password = new_data[u'password'],
+                username=new_data[u'email'],
+                email=new_data[u'email'],
+                password=new_data[u'password'],
                 )
             new_user.is_active = False
-            new_user.first_name = new_data[u'first_name'],
-            new_user.last_name = new_data['last_name'],
+            new_user.first_name = new_data[u'first_name']
+            new_user.last_name = new_data[u'last_name']
             new_user.save()
             new_profile = models.UserProfile(
                 user=new_user,

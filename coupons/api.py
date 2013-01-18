@@ -27,7 +27,7 @@ def _claim_discount_by_object(request, user, discount, fail_silent=False):
     claim = discount.claim(user)
     _add_message(request, messages.SUCCESS, 
                  ('Congratulations! You have claimed the following discount: "%s" '
-                  +discount.get_valid_thru_text()+'.') 
+                  +claim.get_valid_thru_text()+'.') 
                  % discount.display_text)
     return claim
 
