@@ -28,12 +28,12 @@ class UserProfile(models.Model):
 
     def create_activation_key(self):
         self.activation_key = self._create_key()
-        self.key_expires = self.get_expiration()
+        self.key_expires = self._get_expiration()
         return self.activation_key
 
     def create_reset_password_key(self):
         self.resetpassword_key = self._create_key()
-        self.resetpassword_expires = self.get_expiration()
+        self.resetpassword_expires = self._get_expiration()
         return self.resetpassword_key
 
     def _create_key(self):
