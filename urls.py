@@ -9,7 +9,6 @@ from django.views.generic.simple import redirect_to
 admin.autodiscover()
 
 urlpatterns = patterns('swe.views',
-                       url(r'^test/$','test'),
                        # Content pages
                        url(r'^$', 'home'),
                        url(r'^home/$', 'home'),

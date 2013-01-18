@@ -3,6 +3,7 @@ from decimal import Decimal, ROUND_UP
 from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
+from django.utils import unittest
 
 
 def nearest_cent(x):
@@ -113,3 +114,12 @@ class FeaturedDiscount(models.Model):
     
     def __unicode__(self):
         return '%s' % self.discount
+
+
+class ModelTestCase(unittest.TestCase):
+    def setUp(self):
+        self.emailDomain = EmailDomain(domain='mit.edu')
+
+    def test_email_domain_assigned(self):
+        """Animals that can speak are correctly identified"""
+        self.assertEqual(self.emailDomain.domain, 'mit.edu')

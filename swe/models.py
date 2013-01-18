@@ -8,7 +8,7 @@ from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import ugettext as _
-from coupons.models import DiscountClaim
+import coupons
 
 
 def nearest_cent(x):
@@ -23,6 +23,25 @@ class UserProfile(models.Model):
     resetpassword_expires = models.DateTimeField(null=True)
     active_email = models.CharField(max_length=100)
     active_email_confirmed = models.BooleanField()
+
+    def create_activation_key(self):
+        self.activation_key = self._create_key()
+        self.key_expires = self.get_expiration()
+        return self.activation_key
+
+    def create_reset_password_key(self):
+        self.resetpassword_key = self._create_key()
+        self.resetpassword_expires = self.get_expiration()
+        return self.resetpassword_key
+
+    def _create_key(self):
+        salt = sha.new(str(random.random())).hexdigest()[:5]
+        key = sha.new(salt+self.user.email).hexdigest()
+        return key
+
+    def _get_expiration(self):
+        return datetime.datetime.utcnow().replace(tzinfo=timezone.utc) + datetime.timedelta(7)
+
     def __unicode__(self):
         return self.user.username
 
@@ -181,7 +200,7 @@ class ManuscriptOrder(models.Model):
     # Payment properties:
     price_full = models.DecimalField(null=True, max_digits=7, decimal_places=2)
     price_after_discounts = models.DecimalField(null=True, max_digits=7, decimal_places=2)
-    discount_claims = models.ManyToManyField(DiscountClaim, null=True, blank=True)
+    discount_claims = models.ManyToManyField(coupons.models.DiscountClaim, null=True, blank=True)
     paypal_ipn_id = models.IntegerField(null=True, blank=True)
 
     #Status properties
@@ -209,7 +228,7 @@ class ManuscriptOrder(models.Model):
             word_count_text = self.wordcountrange.display_text()
         return _("Editing services")+", "+word_count_text+", "+self.servicetype.display_text
 
-    def calculate_price(self):
+    def _update_derived_price_values(self):
         if self.pricepoint.is_price_per_word:
             self.price_full = self.pricepoint.dollars_per_word * self.word_count_exact
         else:
@@ -219,6 +238,10 @@ class ManuscriptOrder(models.Model):
         for claim in active_claims:
             discount += claim.discount.get_dollars_off(self.price_full)
         self.price_after_discounts = self.price_full - discount
+
+    def get_full_price(self):
+        self._update_derived_price_values()
+        return self.price_full
 
     def get_amount_to_pay(self):
         amount = self.price_after_discounts
@@ -252,6 +275,15 @@ class ManuscriptOrder(models.Model):
             )
         return is_ready
 
+    def get_discount_claims(self):
+        return self.discount_claims.all()
+
+    def get_unused_discount_claims(self):
+        exclude_list = []
+        for discount in self.get_discount_claims():
+            exclude_list.append(discount.pk)
+        return coupons.get_active_discounts_claimed_by_user(self.customer).exclude(pk__in=exclude_list)
+
     def add_discount_claim(self, new_claim):
         if not new_claim.discount.multiple_use_allowed:
             old_claims = self.discount_claims.all()
@@ -259,6 +291,34 @@ class ManuscriptOrder(models.Model):
                 if not old_claim.discount.multiple_use_allowed:
                     self.discount_claims.remove(old_claim)
         self.discount_claims.add(new_claim)
+
+    def reset_discount_claims(self):
+        self.discount_claims.clear()
+        
+    def calculate_price(self):
+        self._update_derived_price_values()
+        invoice_rows = [{'description': self.get_service_description(),
+                         'amount': self.price_full}]
+        for claim in self.get_discount_claims():
+            invoice_rows.append({'description': claim.discount.display_text,
+                                 'amount': '-'+str(claim.discount.get_dollars_off(self.price_full))})
+        return {
+            'invoice_id': self.invoice_id,
+            'rows': invoice_rows,
+            'subtotal': self.get_amount_to_pay(),
+            'tax': '0.00',
+            'amount_due': self.get_amount_to_pay(),
+            }
+
+    @staticmethod
+    def get_open_order(user):
+        try:
+            order = user.manuscriptorder_set.get(is_payment_complete=False)
+        except models.ManuscriptOrder.DoesNotExist:
+            return None
+        except models.ManuscriptOrder.MultipleObjectsReturned:
+            raise Exception('Multiple open orders were found.')
+        return order
             
     def __unicode__(self):
         return self.title

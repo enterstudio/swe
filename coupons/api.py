@@ -47,3 +47,7 @@ def get_discounts_claimed_by_user(user):
 
 def get_active_discounts_claimed_by_user(user):
     return get_discounts_claimed_by_user(user).filter(date_used=None)
+
+def check_for_promotion(request):
+    now = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
+    return coupons.models.FeaturedDiscount.objects.filter(offer_begins__lt=now).filter(offer_ends__gt=now)

@@ -5,7 +5,7 @@
 <input type="submit" name="back" value="< Back" class="btn btn-small btn-inverse" />
 </form>
 <p class="right">
-  Invoice # {{ invoice_id }}
+  Invoice # {{ invoice.invoice_id }}
 </p>
 <table class="table">
   <tr class="table-header">
@@ -96,9 +96,15 @@
 {% endif %}
 
 <div class="center">
+  {% if paid_service %}
   <p>
-  {{ pay_button_message }}
+    {{ pay_button_message }}
   </p>
   {{ pay_button }}
+  {% else %}
+  <form action="/order/4/" method="post" enctype="multipart/form-data">{% csrf_token %}
+    <input type="submit" name="submit-order" value="Submit Order" class="btn btn-large btn-warning" />
+  </form>
+  {% endif %}
 </div>
 {% endblock %}

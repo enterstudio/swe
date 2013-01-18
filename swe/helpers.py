@@ -15,24 +15,6 @@ from swe import models
 import coupons
 
 
-def is_service_available(u):
-    return not settings.BLOCK_SERVICE
-
-
-def logged_in_and_active(u):
-    return u.is_active and u.is_authenticated()
-
-
-def get_open_order(request):
-    try:
-        m = request.user.manuscriptorder_set.get(is_payment_complete=False)
-    except models.ManuscriptOrder.DoesNotExist:
-        return None
-    except models.ManuscriptOrder.MultipleObjectsReturned:
-        raise Exception('Multiple open orders were found.')
-    return m
-
-
 def create_confirmation_key(user):
     # Build the confirmation key for activation or password reset
     salt = sha.new(str(random.random())).hexdigest()[:5]
@@ -55,13 +37,13 @@ payment_was_successful.connect(verify_and_process_payment)
 
 def acknowledge_payment_received(invoice):
     try:
-        m = models.ManuscriptOrder.objects.get(invoice_id=invoice)
+        order = models.ManuscriptOrder.objects.get(invoice_id=invoice)
     except models.ManuscriptOrder.DoesNotExist:
         raise Exception('Invalid invoice id #%s' % invoice)
-    m.is_payment_complete = True
-    m.order_received_now()
-    m.save()
-    user = m.customer
+    order.is_payment_complete = True
+    order.order_received_now()
+    order.save()
+    user = order.customer
     email_subject = _('Thank you! Your order to Science Writing Experts is complete')
     t = loader.get_template('payment_received.txt')
     t_html = loader.get_template('payment_received.html')
@@ -69,8 +51,8 @@ def acknowledge_payment_received(invoice):
         {'customer_service_name': settings.CUSTOMER_SERVICE_NAME,
          'customer_service_title': _(settings.CUSTOMER_SERVICE_TITLE),
          'invoice': invoice,
-         'amount_paid': m.get_amount_to_pay(),
-         'service_description': m.get_service_description(),
+         'amount_paid': order.get_amount_to_pay(),
+         'service_description': order.get_service_description(),
          'root_url': settings.ROOT_URL,
          })
     email_body = t.render(c)

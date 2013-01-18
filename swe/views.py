@@ -17,16 +17,26 @@ from django.http import HttpResponse, HttpResponseRedirect, Http404
 from django.shortcuts import render_to_response, get_object_or_404
 from django.template import loader, Context, RequestContext
 from django.utils import timezone
+from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext as _
 from django.views.decorators.csrf import csrf_exempt 
 from django.views.decorators.http import require_POST
 from paypal.standard.forms import PayPalPaymentsForm 
 from paypal.standard.ipn.forms import PayPalIPNForm
+from paypal.standard.ipn.signals import payment_was_successful
 import coupons
 from swe import forms
 from swe import models
 from swe import helpers
 from swe.messagecatalog import MessageCatalog
+
+
+def is_service_available(u):
+    return not settings.BLOCK_SERVICE
+
+
+def logged_in_and_active(u):
+    return u.is_active and u.is_authenticated()
 
 
 def test(request):
@@ -47,7 +57,11 @@ def test(request):
 
 def home(request):
     if not request.user.is_authenticated():
-        helpers.check_for_promotion(request)
+        promotions = coupons.check_for_promotion(request)
+        for offer in offers:
+            messages.add_message(request, 
+                                 messages.WARNING, 
+                                 offer.promotional_text+mark_safe(' <a href="/register/">Sign up now!</a>'))
     return render_to_response("home/home.html", RequestContext(request, {}))
 
 
@@ -83,7 +97,7 @@ def block(request):
     return render_to_response("home/block.html", RequestContext(request, {}))
 
 
-@user_passes_test(helpers.is_service_available, login_url='/comebacksoon/')
+@user_passes_test(is_service_available, login_url='/comebacksoon/')
 def login(request):
     # Redirect if already logged in
     if request.user.is_authenticated():
@@ -136,8 +150,8 @@ def logout(request):
         raise Http404
 
 
-@user_passes_test(helpers.logged_in_and_active, login_url='/login/')
-@user_passes_test(helpers.is_service_available, login_url='/comebacksoon/')
+@user_passes_test(logged_in_and_active, login_url='/login/')
+@user_passes_test(is_service_available, login_url='/comebacksoon/')
 def account(request):
     discounts = coupons.get_active_discounts_claimed_by_user(request.user)
     orders = request.user.manuscriptorder_set.all()
@@ -149,23 +163,23 @@ def account(request):
                 }))
 
 
-@user_passes_test(helpers.logged_in_and_active, login_url='/register/')
-@user_passes_test(helpers.is_service_available, login_url='/comebacksoon/')
+@user_passes_test(logged_in_and_active, login_url='/register/')
+@user_passes_test(is_service_available, login_url='/comebacksoon/')
 def order(request):
-    m = helpers.get_open_order(request)
+    order = models.ManuscriptOrder.get_open_order(request.user)
     if request.method == 'POST':
         form = forms.OrderForm(request.POST)
         if form.is_valid():
-            if not m:
+            if not order:
                 # ManuscriptOrder is not yet defined. Create one.
-                m = models.ManuscriptOrder(customer=request.user)
-                m.save()
-                m.generate_invoice_id()
-                m.save()
+                order = models.ManuscriptOrder(customer=request.user)
+                order.save()
+                order.generate_invoice_id() #Must save first because this uses the pk
+                order.save()
             new_data=form.cleaned_data
-            m.title=new_data[u'title']
+            order.title=new_data[u'title']
             try:
-                m.subject=models.Subject.objects.get(pk=int(new_data[u'subject']))
+                order.subject=models.Subject.objects.get(pk=int(new_data[u'subject']))
             except models.Subject.DoesNotExist:
                 raise Exception('Could not find Subject with pk=%s' % new_data[u'subject'])
             # If changing wordcountrange, reset fields whose values may no longer be valid: 
@@ -175,26 +189,26 @@ def order(request):
                 new_wordcountrange = models.WordCountRange.objects.get(pk=int(new_data[u'word_count']))
             except models.WordCountRange.DoesNotExist:
                 raise Exception('Could not find WordCountRange with pk=%s' % new_data[u'word_count'])
-            if m.wordcountrange != new_wordcountrange:
-                m.wordcountrange = new_wordcountrange
-                m.servicetype = None
-                m.word_count_exact = None
-                m.pricepoint = None
-            m.save()
+            if order.wordcountrange != new_wordcountrange:
+                order.wordcountrange = new_wordcountrange
+                order.servicetype = None
+                order.word_count_exact = None
+                order.pricepoint = None
+            order.save()
             return HttpResponseRedirect('/order/2/')
         else: # Invalid form
             messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
             return render_to_response("order/order_form.html", RequestContext(request, {'form': form}))
     else: #GET request
-        if m: # Populate form with data from earlier order that was not submitted.
-            initial = {u'title': m.title}
+        if order: # Populate form with data from earlier order that was not submitted.
+            initial = {u'title': order.title}
             try:
-                subject = m.subject.pk
+                subject = order.subject.pk
                 initial[u'subject'] = subject
             except:
                 pass # no subject selected
             try:
-                word_count = m.wordcountrange.pk
+                word_count = order.wordcountrange.pk
                 initial[u'word_count'] = word_count
             except:
                 pass # no word count selected
@@ -205,26 +219,26 @@ def order(request):
             return render_to_response("order/order_form.html", RequestContext(request, {'form': form}))
 
 
-@user_passes_test(helpers.logged_in_and_active)
-@user_passes_test(helpers.is_service_available, login_url='/comebacksoon/')
+@user_passes_test(logged_in_and_active)
+@user_passes_test(is_service_available, login_url='/comebacksoon/')
 def serviceoptions(request):
-    m = helpers.get_open_order(request)
-    if not m:
+    order = models.ManuscriptOrder.get_open_order(request.user)
+    if not order:
         return HttpResponseRedirect('/order/1/')
     if request.method == 'POST':
-        form = forms.SelectServiceForm(request.POST, invoice_id=m.invoice_id)
+        form = forms.SelectServiceForm(request.POST, invoice_id=order.invoice_id)
         if form.is_valid():
             new_data=form.cleaned_data            
             try:
-                m.pricepoint = models.PricePoint.objects.get(pk=int(new_data[u'servicetype']))
+                order.pricepoint = models.PricePoint.objects.get(pk=int(new_data[u'servicetype']))
             except models.PricePoint.DoesNotExist:
                 raise Exception('Could not find pricepoint with pk=%s' % int(new_data[u'servicetype']))
-            m.servicetype = m.pricepoint.servicetype
+            order.servicetype = order.pricepoint.servicetype
             try:
-                m.word_count_exact = new_data[u'word_count_exact']
+                order.word_count_exact = new_data[u'word_count_exact']
             except KeyError:
-                m.word_count_exact = None
-            m.save()
+                order.word_count_exact = None
+            order.save()
             if request.POST.get(u'back'): # Go back after saving
                 return HttpResponseRedirect('/order/1/')
             else:
@@ -238,35 +252,35 @@ def serviceoptions(request):
     else: #GET is expected if redirected from previous page of order form
         # Initialize form with saved data if available
         initial = {}
-        if m.word_count_exact is not None:
-            initial[u'word_count_exact'] = m.word_count_exact
-        if m.pricepoint is not None:
+        if order.word_count_exact is not None:
+            initial[u'word_count_exact'] = order.word_count_exact
+        if order.pricepoint is not None:
             try:
-                initial[u'servicetype'] = m.pricepoint.pk
+                initial[u'servicetype'] = order.pricepoint.pk
             except:
                 pass # pricepoint not defined
-        form = forms.SelectServiceForm(invoice_id=m.invoice_id, initial=initial)
+        form = forms.SelectServiceForm(invoice_id=order.invoice_id, initial=initial)
         return render_to_response('order/service_options.html', RequestContext(request, {'form': form}))
                 
 
-@user_passes_test(helpers.logged_in_and_active)
-@user_passes_test(helpers.is_service_available, login_url='/comebacksoon/')
+@user_passes_test(logged_in_and_active)
+@user_passes_test(is_service_available, login_url='/comebacksoon/')
 def uploadmanuscript(request):
-    def render_page(m):
+    def render_page(order):
         try:
-            d = m.originaldocument
+            doc = order.originaldocument
         except models.OriginalDocument.DoesNotExist:
-            d = models.OriginalDocument()
-            d.manuscriptorder = m
-            d.datetime_uploaded = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
-            d.manuscript_file_key = d.create_file_key()
-            d.save()
+            doc = models.OriginalDocument()
+            doc.manuscriptorder = order
+            doc.datetime_uploaded = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
+            doc.manuscript_file_key = doc.create_file_key()
+            doc.save()
             
         s3uploadform = forms.S3UploadForm(
             settings.AWS_ACCESS_KEY_ID,
             settings.AWS_SECRET_ACCESS_KEY,
             settings.AWS_STORAGE_BUCKET_NAME,
-            'uploads/'+d.manuscript_file_key+'/${filename}',
+            'uploads/'+doc.manuscript_file_key+'/${filename}',
             expires_after = datetime.timedelta(days=1),
             success_action_redirect = settings.ROOT_URL+'awsconfirm/',
             min_size=0,
@@ -276,35 +290,35 @@ def uploadmanuscript(request):
                                   RequestContext(request,{ 
                     'form': s3uploadform,
                     'BUCKET_NAME': settings.AWS_STORAGE_BUCKET_NAME,
-                    'UPLOAD_SUCCESSFUL': d.is_upload_confirmed,
-                    'FILENAME': d.original_name,
+                    'UPLOAD_SUCCESSFUL': doc.is_upload_confirmed,
+                    'FILENAME': doc.original_name,
                     }))
 
-    m = helpers.get_open_order(request)
-    if not m:
+    order = models.ManuscriptOrder.get_open_order(request.user)
+    if not order:
         return HttpResponseRedirect('/order/1/')
     if request.method == 'POST':
         if request.POST.get(u'back'):
             return HttpResponseRedirect('/order/2/')
         else:
-            if m.originaldocument.is_upload_confirmed:
+            if order.originaldocument.is_upload_confirmed:
                 return HttpResponseRedirect('/order/4/')
             else:
                 messages.error(request, _('You must upload a file to continue.'))
-                return render_page(m)
+                return render_page(order)
     else:
-        return render_page(m)
+        return render_page(order)
 
 
-@user_passes_test(helpers.logged_in_and_active)
-@user_passes_test(helpers.is_service_available, login_url='/comebacksoon/')
+@user_passes_test(logged_in_and_active)
+@user_passes_test(is_service_available, login_url='/comebacksoon/')
 def awsconfirm(request):
     # User is redirected here after a successful upload
-    m = helpers.get_open_order(request)
+    order = models.ManuscriptOrder.get_open_order(request.user)
     if not m:
         return HttpResponseRedirect('/order/1/')
     try:
-        d = m.originaldocument
+        doc = order.originaldocument
     except models.OriginalDocument.DoesNotExist:
         raise Exception('Could not find record for uploaded document with invoice_id=%s' % m.invoice_id)
     key = request.GET.get(u'key', None)
@@ -313,85 +327,107 @@ def awsconfirm(request):
     # Split key to get path and filename
     parts = key.split('/')
     key = '/'.join(parts[1:-1])
-    if key != d.manuscript_file_key:
+    if key != doc.manuscript_file_key:
         raise Exception('The key from AWS %s does not match our records %s for the document with invoice_id=%s' 
-                        % (key, d.manuscript_file_key, m.invoice_id))
+                        % (key, doc.manuscript_file_key, order.invoice_id))
     filename = parts[-1]
     if filename == '':
         messages.add_message(request, messages.ERROR, _('Please choose a file to be uploaded.'))
         return HttpResponseRedirect('/order/3/')
-    d.original_name = filename
-    d.is_upload_confirmed = True
-    d.datetime_uploaded = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
-    d.save()
-    m.current_document_version = models.Document.objects.get(id=d.document_ptr_id)
-    m.save()
+    doc.original_name = filename
+    doc.is_upload_confirmed = True
+    doc.datetime_uploaded = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
+    doc.save()
+    order.current_document_version = models.Document.objects.get(id=d.document_ptr_id)
+    order.save()
     messages.add_message(request, messages.SUCCESS, 'The file %s was uploaded successfully.' % d.original_name)
     return HttpResponseRedirect('/order/3/')
 
 
-@user_passes_test(helpers.logged_in_and_active)
-@user_passes_test(helpers.is_service_available, login_url='/comebacksoon/')
+def acknowledge_payment_received(invoice):
+    try:
+        order = models.ManuscriptOrder.objects.get(invoice_id=invoice)
+    except models.ManuscriptOrder.DoesNotExist:
+        raise Exception('Invalid invoice id #%s' % invoice)
+    order.is_payment_complete = True
+    order.order_received_now()
+    order.save()
+    user = order.customer
+    email_subject = _('Thank you! Your order to Science Writing Experts is complete')
+    t = loader.get_template('payment_received.txt')
+    t_html = loader.get_template('payment_received.html')
+    c = Context(
+        {'customer_service_name': settings.CUSTOMER_SERVICE_NAME,
+         'customer_service_title': _(settings.CUSTOMER_SERVICE_TITLE),
+         'invoice': invoice,
+         'amount_paid': order.get_amount_to_pay(),
+         'service_description': order.get_service_description(),
+         'root_url': settings.ROOT_URL,
+         })
+    email_body = t.render(c)
+    email_body_html = t_html.render(c)
+    mail = EmailMultiAlternatives(subject=email_subject,
+                        body=email_body,
+                        from_email='support@sciencewritingexperts.com',
+                        to=[user.email],
+                        bcc=['support@sciencewritingexperts.com'])
+    mail.attach_alternative(email_body_html,'text/html')
+    mail.send()
+
+
+# Signal handler                                                                                                                               
+def verify_and_process_payment(sender, **kwargs):
+    ipn_obj = sender
+    invoice = ipn_obj.invoice
+    acknowledge_payment_received(invoice)
+payment_was_successful.connect(verify_and_process_payment)
+
+
+@user_passes_test(logged_in_and_active)
+@user_passes_test(is_service_available, login_url='/comebacksoon/')
 def submit(request):
-    def render_page(request, m, selectdiscountform=None, claimdiscountform=None, dropforms=None):
+    def render_page(request, order, selectdiscountform=None, claimdiscountform=None, dropforms=None):
         context = {}
-        if not dropforms:
-            active_claims = m.discount_claims.all()
-            dropforms = [];
-            for claim in active_claims:
-                dropforms.append({
-                        'label': claim.discount.display_text, 
-                        'form': coupons.forms.RemoveDiscountForm(initial={u'discount': claim.pk})
-                        })
-        context['dropforms'] = dropforms
-        if not selectdiscountform:
-            exclude_list = []
-            for discount in m.discount_claims.all():
-                exclude_list.append(discount.pk)
-            available_claims = coupons.get_active_discounts_claimed_by_user(request.user).exclude(pk__in=exclude_list)
-            if available_claims:
-                selectdiscountform = coupons.forms.SelectDiscountForm(request.user, available_claims=available_claims)
-            else:
-                selectdiscountform = None
-        context['selectdiscountform'] = selectdiscountform
-        if not claimdiscountform:
-            claimdiscountform = coupons.forms.ClaimOrSelectDiscountForm(request.user)
-        context['claimdiscountform'] = claimdiscountform
-        m.calculate_price()
-        m.save()
-        invoice_rows = [{'description': m.get_service_description(), 
-                         'amount': m.price_full}]
-        active_claims = m.discount_claims.all()
-        for claim in active_claims:
-            invoice_rows.append({'description': claim.discount.display_text, 
-                                 'amount': '-'+str(claim.discount.get_dollars_off(m.price_full))})
-        invoice = {
-            'rows': invoice_rows,
-            'subtotal': m.get_amount_to_pay(),
-            'tax': '0.00',
-            'amount_due': m.get_amount_to_pay(),
-            }
-        context['invoice_id'] = m.invoice_id
-        context['invoice'] = invoice
-        if float(m.price_full) < 0.01: # Free service. Don't show discount forms. Clear coupons so they are not wasted.
+        if float(order.get_full_price()) < 0.01: # Free service. Don't show discount forms. Clear coupons so they are not wasted.
             context['show_discounts'] = False
-            m.discount_claims.clear()
-            m.save()
+            order.reset_discount_claims()
+            order.save()
         else:
             context['show_discounts'] = True
-        if float(m.get_amount_to_pay()) < 0.01: # No payment due. Free service or 100% covered with discounts
-            t = loader.get_template('order/submit_order_free.html')
-            c = RequestContext(request, {})
-            context["pay_button"] = t.render(c)
-            context["pay_button_message"] = ''
+            # Define forms for managing discounts on order
+            if not dropforms:
+                dropforms = [];
+                for claim in order.get_discount_claims():
+                    dropforms.append({
+                            'label': claim.discount.display_text, 
+                            'form': coupons.forms.RemoveDiscountForm(initial={u'discount': claim.pk})
+                            })
+            context['dropforms'] = dropforms
+            if not selectdiscountform:
+                available_claims = order.get_unused_discount_claims()
+                if available_claims:
+                    selectdiscountform = coupons.forms.SelectDiscountForm(request.user, available_claims=available_claims)
+                else:
+                    selectdiscountform = None
+            context['selectdiscountform'] = selectdiscountform
+            if not claimdiscountform:
+                claimdiscountform = coupons.forms.ClaimOrSelectDiscountForm(request.user)
+            context['claimdiscountform'] = claimdiscountform
+        # Define invoice data
+        invoice = order.calculate_price()
+        order.save()
+        context['invoice'] = invoice
+        if float(order.get_amount_to_pay()) < 0.01: # No payment due. Free service or 100% covered with discounts
+            context['paid_service'] = False
             return render_to_response("order/submit_payment.html", RequestContext(request, context))
         else:
+            context['paid_service'] = True
             # paypal button
             paypal_dict = {
                 "business": settings.PAYPAL_RECEIVER_EMAIL,
                 "amount": invoice['amount_due'],
-                "item_name": m.get_service_description(),
-                "invoice": m.invoice_id,
+                "item_name": order.get_service_description(),
+                "invoice": order.invoice_id,
                 "notify_url": "%s%s" % (settings.ROOT_URL, reverse('paypal-ipn')),
                 "return_url": "%s%s" % (settings.ROOT_URL, 'paymentreceived/'),
                 "cancel_return": "%s%s" % (settings.ROOT_URL, 'paymentcanceled/'),
@@ -404,10 +440,10 @@ def submit(request):
             context["pay_button_message"] = _('Clicking the "Buy Now" button will take you away from this site. Please complete your secure payment with PayPal.')
             return render_to_response("order/submit_payment.html", RequestContext(request, context))
 
-    m = helpers.get_open_order(request)
-    if not m:
+    order = models.ManuscriptOrder.get_open_order(request.user)
+    if not order:
         return HttpResponseRedirect('/order/1/')
-    if not m.order_is_ready_to_submit():
+    if not order.order_is_ready_to_submit():
         messages.error(request, _('The order is not complete. Please review the order and supply all needed information.'))
         return HttpResponseRedirect('/order/1/')
     if request.method == 'POST':
@@ -417,23 +453,23 @@ def submit(request):
             dropform = coupons.forms.RemoveDiscountForm(request.POST)
             if dropform.is_valid():
                 new_data = dropform.cleaned_data
-                m.discount_claims.remove(new_data[u'discount'])
-                m.save()
-                return render_page(request, m)
+                order.discount_claims.remove(new_data[u'discount'])
+                order.save()
+                return render_page(request, order)
             else:
-                return render_page(request, m)
+                return render_page(request, order)
         if request.POST.get(u'select'):
             available_claims = request.user.discountclaim_set.all()
             selectdiscountform = coupons.forms.SelectDiscountForm(request.user, available_claims, request.POST)
             if selectdiscountform.is_valid():
                 new_data = selectdiscountform.cleaned_data
-                m.add_discount_claim(new_data[u'discount'])
-                m.save()
-                return render_page(request, m)
+                order.add_discount_claim(new_data[u'discount'])
+                order.save()
+                return render_page(request, order)
             else:
-                m.discount_claims.clear()
-                m.save()
-                return render_page(request, m)
+                order.discount_claims.clear()
+                order.save()
+                return render_page(request, order)
         if request.POST.get(u'claim'):
             claimdiscountform=coupons.forms.ClaimOrSelectDiscountForm(request.user, request.POST)
             if claimdiscountform.is_valid():
@@ -442,34 +478,34 @@ def submit(request):
                     already_claimed = coupons.models.Discount.objects.get(promotional_code=code).is_claimed_by_user(request.user)
                     if already_claimed:
                         # can't claim again, but select it
-                        m.add_discount_claim(already_claimed)
-                        m.save()
-                        return render_page(request, m)
+                        order.add_discount_claim(already_claimed)
+                        order.save()
+                        return render_page(request, order)
                 except coupons.models.Discount.DoesNotExist:
                     Exception('Discount code was validated in form, but we could not find it.')
                 claim = coupons.claim_discount(request, request.user, code)
-                m.add_discount_claim(claim)
-                m.save()
-                return render_page(request, m)
+                order.add_discount_claim(claim)
+                order.save()
+                return render_page(request, order)
             else:
                 messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
-                return render_page(request, m, claimdiscountform=claimdiscountform) # With errors
+                return render_page(request, order, claimdiscountform=claimdiscountform) # With errors
         if request.POST.get(u'submit-order'):
             # POSTs should only come here if price is free. Payments go directly to PayPal.
-            if float(m.get_amount_to_pay()) < 0.01:
-                helpers.acknowledge_payment_received(m.invoice_id)
+            if float(order.get_amount_to_pay()) < 0.01:
+                acknowledge_payment_received(order.invoice_id)
                 messages.add_message(request, messages.INFO,
                                      _('Thank you! Your order is complete. You should receive an email confirming your order.'))
                 return HttpResponseRedirect('/home/')
             else:
-                raise Exception('Invoice %s was submitted as a free trial, but payment is due.' % m.invoice_id)
+                raise Exception('Invoice %s was submitted as a free trial, but payment is due.' % order.invoice_id)
         else:
-            raise Exception('Invoice %s was submitted by POST but the command name was not recognized.' % m.invoice_id)
+            raise Exception('Invoice %s was submitted by POST but the command name was not recognized.' % order.invoice_id)
     else:
-        return render_page(request, m)
+        return render_page(request, order)
 
 
-@user_passes_test(helpers.is_service_available, login_url='/comebacksoon/')
+@user_passes_test(is_service_available, login_url='/comebacksoon/')
 def register(request):
     if request.user.is_authenticated():
         messages.add_message(request,messages.INFO,_('You already have an account. To register a separate account, please logout.'))
@@ -477,21 +513,48 @@ def register(request):
     if request.method == 'POST':
         form = forms.RegisterForm(request.POST)
         if form.is_valid():
-            new_data = form.cleaned_data;
-            helpers.register_user(
-                request = request,
-                username = new_data[u'email'], 
+            new_data = form.cleaned_data
+            new_user = User.objects.create_user(
+                username = new_data[u'email'],
                 email = new_data[u'email'],
                 password = new_data[u'password'],
-                first_name = new_data[u'first_name'],
-                last_name = new_data['last_name'],
                 )
+            new_user.is_active = False
+            new_user.first_name = new_data[u'first_name'],
+            new_user.last_name = new_data['last_name'],
+            new_user.save()
+            new_profile = models.UserProfile(
+                user=new_user,
+                active_email=new_user.email,
+                active_email_confirmed=False,
+                )
+            key = new_profile.create_activation_key()
+            new_profile.save()
+            coupons.claim_featured_discounts(request, new_user)
+            # Send an email with the activation link
+            email_subject = _('Please confirm your account with Science Writing Experts')
+            t = loader.get_template('email/activation_request.txt')
+            c = RequestContext(request, {
+                    'activation_key': key,
+                    'customer_service_name': settings.CUSTOMER_SERVICE_NAME,
+                    'customer_service_title': _(settings.CUSTOMER_SERVICE_TITLE),
+                    })
+            t_html = loader.get_template('email/activation_request.html')
+            email_body = t.render(c)
+            email_body_html = t_html.render(c)
+            mail = EmailMultiAlternatives(
+                subject=email_subject,
+                body=email_body,
+                from_email='support@sciencewritingexperts.com',
+                to=[new_user.email],
+                )
+            mail.attach_alternative(email_body_html, 'text/html')
+            mail.send()
             messages.add_message(request,messages.WARNING,
                 _('An activation key has been sent to your email address. Please check your email to finish creating your account.'))
             return HttpResponseRedirect('/confirm/')
-        else:
+        else: # invalid form
             messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
-            # User posted invalid form
             return render_to_response('account/register.html', RequestContext(request, { 'form': form }))
     else:
         #GET
@@ -499,7 +562,7 @@ def register(request):
         return render_to_response('account/register.html', RequestContext(request, { 'form': form }))
 
 
-@user_passes_test(helpers.is_service_available, login_url='/comebacksoon/')
+@user_passes_test(is_service_available, login_url='/comebacksoon/')
 def confirmactivation(request, activation_key=None):
     if request.method=='POST':
         # POST
@@ -557,7 +620,7 @@ def confirmactivation(request, activation_key=None):
                     }))
 
 
-@user_passes_test(helpers.is_service_available, login_url='/comebacksoon/')
+@user_passes_test(is_service_available, login_url='/comebacksoon/')
 def activationrequest(request):
     if request.method=='POST':
         #TODO: Use Captcha
@@ -570,17 +633,15 @@ def activationrequest(request):
                                      _('This email address has not been registered. '+
                                      'You must register before activating the account.'))
                 return render_to_response('account/activation_request.html', RequestContext(request, { 'form': form }))
-            activation_key = helpers.create_confirmation_key(user)
-            key_expires = helpers.get_confirmation_key_expiration()
             profile = user.userprofile
-            profile.activation_key = activation_key
-            profile.key_expires = key_expires
+            key = profile.create_activation_key()
+            profile.save()
             # Send an email with the confirmation link
             email_subject = _('Please confirm your account with Science Writing Experts')
             t = loader.get_template('email/activation_request.txt')
             t_html = loader.get_template('email/activation_request.html')
             c = RequestContext(request,
-                                     {'activation_key': profile.activation_key,
+                                     {'activation_key': key,
                                       'customer_service_name': settings.CUSTOMER_SERVICE_NAME,
                                       'customer_service_title': settings.CUSTOMER_SERVICE_TITLE,
                                       })
@@ -593,7 +654,6 @@ def activationrequest(request):
                                           )
             mail.attach_alternative(email_body_html,'text/html')
             mail.send()
-            profile.save()
             messages.add_message(request,messages.SUCCESS, _('A new activation key has been sent to %(email)s.') % {email: user.email})
             return HttpResponseRedirect('/confirm/')
         else:
@@ -603,7 +663,7 @@ def activationrequest(request):
         form = forms.ActivationRequestForm()
         return render_to_response('account/activation_request.html', RequestContext(request, { 'form': form }))
 
-@user_passes_test(helpers.is_service_available, login_url='/comebacksoon/')
+@user_passes_test(is_service_available, login_url='/comebacksoon/')
 def requestresetpassword(request):
     if request.method=='POST':
         form = forms.RequestResetPasswordForm(request.POST)
@@ -617,14 +677,13 @@ def requestresetpassword(request):
                 messages.add_message(request, messages.ERROR, _('This email address is not yet registered. Please sign up.'))
                 return render_to_response('account/request_reset_password.html', RequestContext(request, {'form': form}))
             profile = user.userprofile
-            profile.resetpassword_key = helpers.create_confirmation_key(user)
-            profile.resetpassword_expires = helpers.get_confirmation_key_expiration()
+            key = profile.create_reset_password_key()
             profile.save()
             # Send an email with the confirmation link
             email_subject = 'Science Writing Experts password reset'
             t = loader.get_template('email/request_reset_password.txt')
             c = RequestContext(request, {
-                    'resetpassword_key': profile.resetpassword_key,
+                    'resetpassword_key': key,
                     'customer_service_name': settings.CUSTOMER_SERVICE_NAME,
                     'customer_service_title': settings.CUSTOMER_SERVICE_TITLE,
                     })
@@ -649,7 +708,7 @@ def requestresetpassword(request):
 
 
 
-@user_passes_test(helpers.is_service_available, login_url='/comebacksoon/')
+@user_passes_test(is_service_available, login_url='/comebacksoon/')
 def completeresetpassword(request, resetpassword_key=None):
     if request.method == 'POST':
         form = forms.ResetPasswordForm(request.POST)
@@ -688,8 +747,8 @@ def completeresetpassword(request, resetpassword_key=None):
             return render_to_response('account/complete_reset_password.html', RequestContext(request, {'form': form}))
 
 
-@user_passes_test(helpers.logged_in_and_active)
-@user_passes_test(helpers.is_service_available, login_url='/comebacksoon/')
+@user_passes_test(logged_in_and_active)
+@user_passes_test(is_service_available, login_url='/comebacksoon/')
 def changepassword(request):
     if request.method == 'POST':
         form = forms.ChangePasswordForm(request.user, request.POST)
@@ -707,8 +766,8 @@ def changepassword(request):
         return render_to_response('account/change_password.html', RequestContext(request, {'form': form}))
 
 
-@user_passes_test(helpers.logged_in_and_active)
-@user_passes_test(helpers.is_service_available, login_url='/comebacksoon/')
+@user_passes_test(logged_in_and_active)
+@user_passes_test(is_service_available, login_url='/comebacksoon/')
 def claimdiscount(request):
     if request.method == 'POST':
         form = coupons.forms.ClaimDiscountForm(request.user, request.POST)
@@ -781,3 +840,5 @@ def ipn(request, item_check_callable=None):
     ipn_obj.save()
 
     return HttpResponse("OKAY")
+
+

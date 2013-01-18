@@ -3,6 +3,7 @@
 
 # Django settings for swe project.
 import os
+import sys
 
 RACK_ENV=os.environ['RACK_ENV'] #development, staging, production
 
@@ -28,22 +29,29 @@ ADMINS = (
 
 MANAGERS = ADMINS
 
-if RACK_ENV=='development':
+if 'test' in sys.argv:
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.postgresql_psycopg2', # Add 'postgresql_psycopg2', 'mysql', 'sqlite3' or 'oracle'.
-            'NAME': 'swe',                      # Or path to database file if using sqlite3.
-            'USER': os.environ['PSQL_USER'],                      # Not used with sqlite3.
-            'PASSWORD': os.environ['PSQL_PASSWORD'],                  # Not used with sqlite3.
-            'HOST': 'localhost',                      # Set to empty string for localhost. Not used with sqlite3.
-            'PORT': '',                      # Set to empty string for default. Not used with sqlite3.
+            'ENGINE': 'django.db.backends.sqlite3'
             }
         }
 else:
-    import dj_database_url
-    DATABASES = {
-        'default': dj_database_url.config(),
-        }
+    if RACK_ENV=='development':
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql_psycopg2', # Add 'postgresql_psycopg2', 'mysql', 'sqlite3' or 'oracle'.
+                'NAME': 'swe',                      # Or path to database file if using sqlite3.
+                'USER': os.environ['PSQL_USER'],                      # Not used with sqlite3.
+                'PASSWORD': os.environ['PSQL_PASSWORD'],                  # Not used with sqlite3.
+                'HOST': 'localhost',                      # Set to empty string for localhost. Not used with sqlite3.
+                'PORT': '',                      # Set to empty string for default. Not used with sqlite3.
+                }
+            }
+    else:
+        import dj_database_url
+        DATABASES = {
+            'default': dj_database_url.config(),
+            }
 
 TIME_ZONE = 'America/Los_Angeles'
 LANGUAGE_CODE = 'en-us'
