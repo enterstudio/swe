@@ -71,7 +71,7 @@ class Discount(models.Model):
                 return claims[i]
         return False
 
-    def claim_discount(self, user):
+    def claim(self, user):
         now = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
         c = DiscountClaim(
             discount=self,
@@ -102,6 +102,12 @@ class DiscountClaim(models.Model):
     date_used = models.DateTimeField(null=True, blank=True)
     use_by_date = models.DateTimeField(null=True, blank=True)
 
+    def get_valid_thru_text(self):
+        if self.use_by_date is not None:
+            return 'valid through %s' % self.use_by_date.strftime("%Y-%m-%d")
+        else:
+            return ''
+
     def __unicode__(self):
         return '%s' % self.discount
 
@@ -121,5 +127,5 @@ class ModelTestCase(unittest.TestCase):
         self.emailDomain = EmailDomain(domain='mit.edu')
 
     def test_email_domain_assigned(self):
-        """Animals that can speak are correctly identified"""
+        """Dummy test"""
         self.assertEqual(self.emailDomain.domain, 'mit.edu')

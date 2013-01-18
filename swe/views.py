@@ -57,7 +57,7 @@ def test(request):
 
 def home(request):
     if not request.user.is_authenticated():
-        promotions = coupons.check_for_promotion(request)
+        promotions = coupons.get_featured_discounts()
         for offer in offers:
             messages.add_message(request, 
                                  messages.WARNING, 
@@ -153,7 +153,7 @@ def logout(request):
 @user_passes_test(logged_in_and_active, login_url='/login/')
 @user_passes_test(is_service_available, login_url='/comebacksoon/')
 def account(request):
-    discounts = coupons.get_active_discounts_claimed_by_user(request.user)
+    discounts = coupons.get_available_discounts(request.user)
     orders = request.user.manuscriptorder_set.all()
     return render_to_response(
         "account/account.html", 
@@ -226,7 +226,7 @@ def serviceoptions(request):
     if not order:
         return HttpResponseRedirect('/order/1/')
     if request.method == 'POST':
-        form = forms.SelectServiceForm(request.POST, invoice_id=order.invoice_id)
+        form = forms.SelectServiceForm(order, request.POST)
         if form.is_valid():
             new_data=form.cleaned_data            
             try:
@@ -259,7 +259,7 @@ def serviceoptions(request):
                 initial[u'servicetype'] = order.pricepoint.pk
             except:
                 pass # pricepoint not defined
-        form = forms.SelectServiceForm(invoice_id=order.invoice_id, initial=initial)
+        form = forms.SelectServiceForm(order, initial=initial)
         return render_to_response('order/service_options.html', RequestContext(request, {'form': form}))
                 
 
@@ -315,12 +315,12 @@ def uploadmanuscript(request):
 def awsconfirm(request):
     # User is redirected here after a successful upload
     order = models.ManuscriptOrder.get_open_order(request.user)
-    if not m:
+    if not order:
         return HttpResponseRedirect('/order/1/')
     try:
         doc = order.originaldocument
     except models.OriginalDocument.DoesNotExist:
-        raise Exception('Could not find record for uploaded document with invoice_id=%s' % m.invoice_id)
+        raise Exception('Could not find record for uploaded document with invoice_id=%s' % order.invoice_id)
     key = request.GET.get(u'key', None)
     if key == None:
         raise Exception('Could not find AWS file key.')
@@ -338,9 +338,9 @@ def awsconfirm(request):
     doc.is_upload_confirmed = True
     doc.datetime_uploaded = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
     doc.save()
-    order.current_document_version = models.Document.objects.get(id=d.document_ptr_id)
+    order.current_document_version = models.Document.objects.get(id=doc.document_ptr_id)
     order.save()
-    messages.add_message(request, messages.SUCCESS, 'The file %s was uploaded successfully.' % d.original_name)
+    messages.add_message(request, messages.SUCCESS, 'The file %s was uploaded successfully.' % doc.original_name)
     return HttpResponseRedirect('/order/3/')
 
 
@@ -477,7 +477,7 @@ def submit(request):
                 try:
                     already_claimed = coupons.models.Discount.objects.get(promotional_code=code).is_claimed_by_user(request.user)
                     if already_claimed:
-                        # can't claim again, but select it
+                        # can't claim again, but select it instead
                         order.add_discount_claim(already_claimed)
                         order.save()
                         return render_page(request, order)

@@ -37,6 +37,9 @@ class ClaimDiscountForm(forms.Form):
             raise forms.ValidationError(_("This promotional code is not available."))
 
 class ClaimOrSelectDiscountForm(ClaimDiscountForm):
+    # ClaimDiscountForm only allows promo codes that a user can claim.
+    # ClaimOrSelectDiscountForm also allows promo codes that a user has already claimed
+    # so that the view can select this DiscountClaim rather than error
     def __init__(self, user, *args, **kwargs):
         super(ClaimOrSelectDiscountForm, self).__init__(user, *args, **kwargs)
         self.user = user
@@ -56,7 +59,7 @@ class ClaimOrSelectDiscountForm(ClaimDiscountForm):
 
 
 class RemoveDiscountForm(forms.Form):
-        discount = forms.CharField( 
-            widget=forms.HiddenInput,
-            max_length=20,
-            )
+    discount = forms.CharField( 
+        widget=forms.HiddenInput,
+        max_length=20,
+        )

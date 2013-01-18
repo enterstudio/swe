@@ -162,7 +162,6 @@ class ActivationRequestForm(forms.Form):
     def clean_email(self):
         #TODO: Fix this to avoid revealing if an email is registered.
         email = self.cleaned_data['email']
-
         # Verify that email is on record.
         try:
             u = User.objects.get(username=email)
@@ -171,7 +170,6 @@ class ActivationRequestForm(forms.Form):
                 raise forms.ValidationError(_("This account has already been activated."))
         except User.DoesNotExist:
             raise forms.ValidationError(_("This email address is not registered."))
-
         return email
 
 
@@ -188,42 +186,29 @@ class OrderForm(forms.Form):
 
 
 class SelectServiceForm(forms.Form):
-    invoice_id = None
+    order = None
     servicetype = forms.ChoiceField(label=_('Type of service'))
     word_count_exact = forms.IntegerField(label = _('Number of words in the manuscript (excluding references)'))
-    def __init__(self, *args, **kwargs):
-        # Invoice_id must be in kwargs
-        try:
-            self.invoice_id = kwargs['invoice_id']
-            del[kwargs['invoice_id']]
-        except KeyError:
-            raise Exception('Missing required argument invoice_id.')
+    def __init__(self, order, *args, **kwargs):
         super(SelectServiceForm, self).__init__(*args, **kwargs)
-        manuscriptorder = models.ManuscriptOrder.objects.get(invoice_id=self.invoice_id)
-        self.fields[u'servicetype'].choices = manuscriptorder.wordcountrange.get_pricepoint_choicelist()
-        if manuscriptorder.wordcountrange.max_words is not None:
+        self.order = order
+        self.fields[u'servicetype'].choices = self.order.wordcountrange.get_pricepoint_choicelist()
+        if not self.order.is_exact_word_count_needed():
             # A definite word count range is already specified. Drop the field.
             del(self.fields[u'word_count_exact'])
             
     def clean_word_count_exact(self):
-        manuscriptorder = models.ManuscriptOrder.objects.get(invoice_id=self.invoice_id)
         maximum_allowed = 1000000
         words = self.cleaned_data[u'word_count_exact']
-        if manuscriptorder.wordcountrange.min_words is not None:
-            if words < manuscriptorder.wordcountrange.min_words:            
+        if self.order.wordcountrange.min_words is not None:
+            if words < self.order.wordcountrange.min_words:            
                 raise forms.ValidationError("This word count is not in the selected range.")
-        if manuscriptorder.wordcountrange.max_words is not None:
-            if words > manuscriptorder.wordcountrange.max_words:            
+        if self.order.wordcountrange.max_words is not None:
+            if words > self.order.wordcountrange.max_words:            
                 raise forms.ValidationError("This word count is not in the selected range.")
         if words > maximum_allowed:
             raise forms.ValidationError("Please contact support submit a document of this length.")
         return words
-
-
-class SubmitOrderFreeForm(forms.Form):
-    def __init__(self, *args, **kwargs):
-        # invoice_id must be defined in kwargs
-        super(SubmitOrderFreeForm, self).__init__(*args, **kwargs)
 
 
 class S3UploadForm(forms.Form):

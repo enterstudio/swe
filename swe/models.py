@@ -282,7 +282,7 @@ class ManuscriptOrder(models.Model):
         exclude_list = []
         for discount in self.get_discount_claims():
             exclude_list.append(discount.pk)
-        return coupons.get_active_discounts_claimed_by_user(self.customer).exclude(pk__in=exclude_list)
+        return coupons.get_available_discounts(self.customer).exclude(pk__in=exclude_list)
 
     def add_discount_claim(self, new_claim):
         if not new_claim.discount.multiple_use_allowed:
@@ -314,11 +314,21 @@ class ManuscriptOrder(models.Model):
     def get_open_order(user):
         try:
             order = user.manuscriptorder_set.get(is_payment_complete=False)
-        except models.ManuscriptOrder.DoesNotExist:
+        except ManuscriptOrder.DoesNotExist:
             return None
-        except models.ManuscriptOrder.MultipleObjectsReturned:
+        except ManuscriptOrder.MultipleObjectsReturned:
             raise Exception('Multiple open orders were found.')
         return order
+
+    def is_exact_word_count_needed(self):
+        try:
+            max_words = self.wordcountrange.max_words
+        except:
+            max_words = None
+        if not max_words:
+            return True
+        else:
+            return False
             
     def __unicode__(self):
         return self.title
