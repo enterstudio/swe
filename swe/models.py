@@ -26,6 +26,26 @@ class UserProfile(models.Model):
     active_email = models.CharField(max_length=100)
     active_email_confirmed = models.BooleanField()
 
+    @classmethod
+    def create_user_and_profile(cls, email=None, password=None, first_name=None, last_name=None):
+        new_user = User.objects.create_user(
+            username=email,
+            email=email,
+            password=password,
+            )
+        new_user.is_active = False
+        new_user.first_name = first_name
+        new_user.last_name = last_name
+        new_user.save()
+        profile = UserProfile(
+            user=new_user,
+            active_email=new_user.email,
+            active_email_confirmed=False,
+            )
+        profile.create_activation_key()
+        profile.save()
+        return profile
+
     def create_activation_key(self):
         self.activation_key = self._create_key()
         self.key_expires = self._get_expiration()
@@ -360,3 +380,45 @@ class ManuscriptEdit(models.Model):
 
     def __unicode__(self):
         return self.manuscript_order.title+' Edit id '+self.id
+
+
+# Tests -------------------------------------------------------------------------
+
+from django.test import TestCase
+
+class NonsenseTest(TestCase):
+    def test_other(self):
+        pass
+
+class UserProfileTest(TestCase):
+    from django.contrib.auth.models import User
+
+    def setUp(self):
+        profile = UserProfile.create_user_and_profile(
+            email = 'acro@batic.edu',
+            password = 'p4s$w0rd',
+            first_name = 'John',
+            last_name = 'Doe',
+            )
+        self.user = profile.user
+
+    def test_create_user_and_profile(self):
+        """ Verify create_user_and_profile creates User and UserProfile """
+        self.assertEqual(1,1)
+
+
+    def test_create_activation_key(self):
+        pass
+
+    def test_create_reset_password_key(self):
+        pass
+
+    def test_create_keyTest(self):
+        pass
+
+    def test_get_expirationTest(self):
+        pass
+
+        # self.assertEqual(1 + 1, 2)
+
+

@@ -512,28 +512,18 @@ def register(request):
         form = forms.RegisterForm(request.POST)
         if form.is_valid():
             new_data = form.cleaned_data
-            new_user = User.objects.create_user(
-                username=new_data[u'email'],
+            new_profile = models.UserProfile.create_user_and_profile(
                 email=new_data[u'email'],
                 password=new_data[u'password'],
-                )
-            new_user.is_active = False
-            new_user.first_name = new_data[u'first_name']
-            new_user.last_name = new_data[u'last_name']
-            new_user.save()
-            new_profile = models.UserProfile(
-                user=new_user,
-                active_email=new_user.email,
-                active_email_confirmed=False,
-                )
-            key = new_profile.create_activation_key()
+                first_name=new_data[u'first_name'],
+                last_name=new_data[u'last_name'])
             new_profile.save()
-            coupons.claim_featured_discounts(request, new_user)
+            coupons.claim_featured_discounts(request, new_profile.user)
             # Send an email with the activation link
             email_subject = _('Please confirm your account with Science Writing Experts')
             t = loader.get_template('email/activation_request.txt')
             c = RequestContext(request, {
-                    'activation_key': key,
+                    'activation_key': new_profile.activation_key,
                     'customer_service_name': settings.CUSTOMER_SERVICE_NAME,
                     'customer_service_title': _(settings.CUSTOMER_SERVICE_TITLE),
                     })
@@ -544,7 +534,7 @@ def register(request):
                 subject=email_subject,
                 body=email_body,
                 from_email='support@sciencewritingexperts.com',
-                to=[new_user.email],
+                to=[new_profile.user.email],
                 )
             mail.attach_alternative(email_body_html, 'text/html')
             mail.send()
@@ -652,7 +642,7 @@ def activationrequest(request):
                                           )
             mail.attach_alternative(email_body_html,'text/html')
             mail.send()
-            messages.add_message(request,messages.SUCCESS, _('A new activation key has been sent to %(email)s.') % {email: user.email})
+            messages.add_message(request,messages.SUCCESS, _('A new activation key has been sent to %(email)s.') % { 'email': user.email})
             return HttpResponseRedirect('/confirm/')
         else:
             messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
