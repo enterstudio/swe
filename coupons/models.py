@@ -47,7 +47,7 @@ class Discount(models.Model):
     is_by_percent = models.BooleanField()
     percentoff = models.IntegerField(null=True, blank=True)
     # validity limits
-    expiration_date = models.DateTimeField() #applies when claiming, not when redeeming
+    expiration_date = models.DateTimeField(null=True, blank=True, default=None) #applies when claiming, not when redeeming
     default_use_by_date = models.DateTimeField(null=True, blank=True, default=None)
     default_use_by_days = models.FloatField(null=True, blank=True, default=None)
     userfilters = models.ManyToManyField(UserFilter, null=True, blank=True)
@@ -55,9 +55,10 @@ class Discount(models.Model):
     persists_after_use = models.BooleanField(default=False)
 
     def is_available_to_user(self, user):
-        now = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
-        if self.expiration_date < now:
-            return False
+        if self.expiration_date:
+            now = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
+            if self.expiration_date < now:
+                return False
         if self.is_claimed_by_user(user):
             # Duplicate claim
             return False
