@@ -3,8 +3,6 @@ import datetime
 import hmac
 import json
 import os
-import random
-import sha
 from django import forms
 from django.conf import settings
 from django.contrib import messages, auth

@@ -2,6 +2,8 @@ from decimal import Decimal, ROUND_UP
 import datetime
 import logging
 import os
+import sha
+import random
 from time import strftime, gmtime
 import uuid
 from django.contrib.auth.models import User
