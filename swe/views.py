@@ -58,10 +58,10 @@ def test(request):
 def home(request):
     if not request.user.is_authenticated():
         promotions = coupons.get_featured_discounts()
-        for offer in offers:
+        for promo in promotions:
             messages.add_message(request, 
                                  messages.WARNING, 
-                                 offer.promotional_text+mark_safe(' <a href="/register/">Sign up now!</a>'))
+                                 promo.promotional_text+mark_safe(' <a href="/register/">Sign up now!</a>'))
     return render_to_response("home/home.html", RequestContext(request, {}))
 
 
