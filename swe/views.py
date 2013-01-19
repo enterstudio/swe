@@ -38,9 +38,15 @@ def logged_in_and_active(u):
 
 
 def test(request):
-    current_lang = request.session['django_language']
-    request.session['django_language'] = 'zh-cn'
-    return HttpResponse("Your language code is %s" % current_lang)
+    #current_lang = request.session['django_language']
+    #request.session['django_language'] = 'zh-cn'
+    #return HttpResponse("Your language code is %s" % current_lang)
+    messages.add_message(request,messages.INFO,'This is a message.')
+    messages.add_message(request,messages.SUCCESS,'This is a message.')
+    messages.add_message(request,messages.ERROR,'This is a message.')
+    messages.add_message(request,messages.WARNING,'This is a message.')
+    return HttpResponseRedirect('/home/')
+    
 
     #from django.contrib.gis.utils import GeoIP
     #g = GeoIP()

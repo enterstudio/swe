@@ -5,6 +5,7 @@ body {
 /******** User feedback messages ********/
 .messages {
     font-size: 1.00em;
+    margin: -10px 0 16px 0;
 }
 
 .messages ul {
@@ -15,6 +16,13 @@ body {
 
 .messages ul li {
     padding: 0.1em;
+}
+
+.messages a {
+    color: #005580;
+}
+.messages a:hover {
+    color: #0072a0;
 }
 
 .info,
@@ -30,30 +38,30 @@ body {
 }
 
 .info {
-    color: #00529B;
-    border-color: #789FCC;
-    background-color: #CDEAF7;
+    color: #020233;
+    border-color: #0072a0;
+    background-color: #37BAF8;
     background-image: url('../img/info.png');
 }
 
 .success {
-    color: #264409;
-    border-color: #C6D880;
-    background-color: #E6EFC2;
-    background-image:url('../img/success.png');
+    color: #060b04;
+    border-color: #427c2c;
+    background-color: #5bbc35;
+    background-image: url('../img/success.png');
 }
 
 .warning {
-    color: #514721;
-    border-color: #FFD324;
-    background-color: #FFF6BF;
+    color: #202020;
+    border-color: #F89406;
+    background-color: #FAAE43;
     background-image: url('../img/warning.png');
 }
 
 .error {
-    color: #8A1F11;
-    border-color: #FBC2C4; 
-    background-color: #FBE3E4;
+    color: #110404;
+    border-color: #bd0c10; 
+    background-color: #c93939;
     background-image: url('../img/error.png');
 }
 /******** /User feedback messages ********/
