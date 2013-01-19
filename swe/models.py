@@ -46,6 +46,31 @@ class UserProfile(models.Model):
         profile.save()
         return profile
 
+    @classmethod
+    def activate(cls, activation_key):
+        try:
+            userprofile = cls.objects.get(activation_key=activation_key)
+        except cls.DoesNotExist:
+            return False
+        if userprofile.key_expires < datetime.datetime.utcnow().replace(tzinfo=timezone.utc):
+            return False
+        user = userprofile.user
+        user.is_active = True
+        user.save()
+        return user
+
+    @classmethod
+    def is_resetpassword_key_ok(cls, resetpassword_key):
+        try:
+            userprofile = cls.objects.get(resetpassword_key=resetpassword_key)
+        except cls.DoesNotExist:
+            return False
+        if userprofile.resetpassword_expires < datetime.datetime.utcnow().replace(tzinfo=timezone.utc):
+            return False
+        user = userprofile.user
+        return user
+
+
     def create_activation_key(self):
         self.activation_key = self._create_key()
         self.key_expires = self._get_expiration()
@@ -81,6 +106,22 @@ class Document(models.Model):
         newfilename = '%s' % uuid.uuid4()
         path = strftime('%Y/%m/%d', gmtime())
         return os.path.join(path, newfilename)
+
+    def confirm_upload(self,key):
+        # Split key to get path and filename
+        parts = key.split('/')
+        key = '/'.join(parts[1:-1])
+        if key != self.manuscript_file_key:
+            raise Exception('The key from AWS %s does not match our records %s for this uploaded document.'
+                            % (key, self.manuscript_file_key))
+        filename = parts[-1]
+        if filename == '':
+            return False
+        self.original_name = filename
+        self.is_upload_confirmed = True
+        self.datetime_uploaded = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
+        self.save()
+        return True
 
     def __unicode__(self):
         return self.original_name
@@ -280,6 +321,9 @@ class ManuscriptOrder(models.Model):
             if not claim.discount.persists_after_use:
                 claim.date_used = now
 
+    def set_current_document_version(self, doc):
+        self.current_document_version = Document.objects.get(id=doc.document_ptr_id)
+
     def order_is_ready_to_submit(self):
         #Verify that required fields are defined
         try:
@@ -351,6 +395,15 @@ class ManuscriptOrder(models.Model):
             return True
         else:
             return False
+
+    def initialize_original_document(self):
+        doc = OriginalDocument()
+        doc.manuscriptorder = self
+        doc.datetime_uploaded = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
+        doc.manuscript_file_key = doc.create_file_key()
+        doc.save()
+        self.save()
+        return doc
             
     def __unicode__(self):
         return self.title

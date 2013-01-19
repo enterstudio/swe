@@ -274,12 +274,8 @@ def uploadmanuscript(request):
         try:
             doc = order.originaldocument
         except models.OriginalDocument.DoesNotExist:
-            doc = models.OriginalDocument()
-            doc.manuscriptorder = order
-            doc.datetime_uploaded = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
-            doc.manuscript_file_key = doc.create_file_key()
-            doc.save()
-            
+            doc = order.initialize_original_document()
+             
         s3uploadform = forms.S3UploadForm(
             settings.AWS_ACCESS_KEY_ID,
             settings.AWS_SECRET_ACCESS_KEY,
@@ -328,21 +324,10 @@ def awsconfirm(request):
     key = request.GET.get(u'key', None)
     if key == None:
         raise Exception('Could not find AWS file key.')
-    # Split key to get path and filename
-    parts = key.split('/')
-    key = '/'.join(parts[1:-1])
-    if key != doc.manuscript_file_key:
-        raise Exception('The key from AWS %s does not match our records %s for the document with invoice_id=%s' 
-                        % (key, doc.manuscript_file_key, order.invoice_id))
-    filename = parts[-1]
-    if filename == '':
+    if not doc.confirm_upload(key):
         messages.add_message(request, messages.ERROR, _('Please choose a file to be uploaded.'))
         return HttpResponseRedirect('/order/3/')
-    doc.original_name = filename
-    doc.is_upload_confirmed = True
-    doc.datetime_uploaded = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
-    doc.save()
-    order.current_document_version = models.Document.objects.get(id=doc.document_ptr_id)
+    order.set_current_document_version(doc)
     order.save()
     messages.add_message(request, messages.SUCCESS, 'The file %s was uploaded successfully.' % doc.original_name)
     return HttpResponseRedirect('/order/3/')
@@ -563,21 +548,13 @@ def confirmactivation(request, activation_key=None):
         form = forms.ConfirmForm(request.POST)
         if form.is_valid():
             activation_key = form.cleaned_data[u'activation_key']
-            try:
-                userprofile = models.UserProfile.objects.get(activation_key=activation_key)
-            except models.UserProfile.DoesNotExist:
-                # Could not find activation key
-                messages.add_message(request,messages.ERROR,_('The activation key is not valid. Please request a new activation key.'))
-                return HttpResponseRedirect('/activationrequest/')
-            if userprofile.key_expires < datetime.datetime.utcnow().replace(tzinfo=timezone.utc):
-                # Key expired
-                messages.add_message(request,messages.ERROR,_('The activation key has expired. Please request a new activation key.'))
+            user = models.UserProfile.activate(activation_key)
+            if not user:
+                messages.add_message(request,messages.ERROR,
+                                     _('The activation key has expired or is not valid. Please request a new activation key.'))
                 return HttpResponseRedirect('/activationrequest/')
             else:
                 # Key is good
-                user_account = userprofile.user
-                user_account.is_active = True
-                user_account.save()        
                 messages.add_message(request,messages.SUCCESS,
                                      _('Your have successfully activated your account. Please login to continue.'))
                 email_subject = _('Welcome to Science Writing Experts!')
@@ -592,7 +569,7 @@ def confirmactivation(request, activation_key=None):
                 mail = EmailMultiAlternatives(subject=email_subject, 
                                               body=email_body, 
                                               from_email='support@sciencewritingexperts.com', 
-                                              to=[userprofile.user.email], 
+                                              to=[user.userprofile.active_email], 
                                               )
                 mail.attach_alternative(email_body_html, 'text/html')
                 mail.send()
@@ -657,6 +634,7 @@ def activationrequest(request):
         form = forms.ActivationRequestForm()
         return render_to_response('account/activation_request.html', RequestContext(request, { 'form': form }))
 
+
 @user_passes_test(is_service_available, login_url='/comebacksoon/')
 def requestresetpassword(request):
     if request.method=='POST':
@@ -708,31 +686,24 @@ def completeresetpassword(request, resetpassword_key=None):
         form = forms.ResetPasswordForm(request.POST)
         if form.is_valid():
             resetpassword_key = form.cleaned_data[u'resetpassword_key']
-            try:
-                userprofile = models.UserProfile.objects.get(resetpassword_key=resetpassword_key)
-            except models.UserProfile.DoesNotExist:
-                messages.error(request, _('This email address is not currently registered.'))
+            user = models.UserProfile.is_resetpassword_key_ok(resetpassword_key)
+            if not user:
+                messages.error(request, 
+                               _('The password reset failed. The request has expired or the email address is not currently registered.'))
                 return render_to_response('account/complete_reset_password.html', RequestContext(request, {'form': form}))
-                #TODO This should be prevented by form validation
-            # Everything ok. Change password
-            userprofile.user.set_password(form.cleaned_data[u'password'])
-            messages.add_message(request, messages.SUCCESS, 
-                                 _('Your password has been successfully updated.'))
-            return HttpResponseRedirect('/login/')
+            else:
+                # Everything ok. Change password
+                user.set_password(form.cleaned_data[u'password'])
+                messages.add_message(request, messages.SUCCESS, 
+                                     _('Your password has been successfully updated.'))
+                return HttpResponseRedirect('/login/')
         else:
             messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
             return render_to_response('account/complete_reset_password.html', RequestContext(request, {'form': form}))
     else:
-        try:
-            userprofile = models.UserProfile.objects.get(resetpassword_key=resetpassword_key)
-        except models.UserProfile.DoesNotExist:
+        if not models.UserProfile.is_resetpassword_key_ok(resetpassword_key):
             messages.add_message(request,messages.ERROR,
-                                 _('This request is not valid. Please contact support.'))
-            return HttpResponseRedirect('/home/')
-        if userprofile.resetpassword_expires < datetime.datetime.utcnow().replace(tzinfo=timezone.utc):
-            # Key expired
-            messages.add_message(request,messages.ERROR,
-                                 _('The link has expired. Please subit a new request to reset your password.'))
+                                 _('This request has expired or is not valid. Please submit a new request to reset your password.'))
             return HttpResponseRedirect('/resetpassword/')
         else:
             # Key is good. Render form.
