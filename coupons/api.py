@@ -17,7 +17,7 @@ def claim_discount(request, user, promotional_code):
      except coupons.models.Discount.DoesNotExist:
          _add_message(request, messages.ERROR, 'We are sorry, there is no available discount for code "%s".' % promotional_code)
          return
-     return claim_discount_by_object(request, user, discount, fail_silent=False)
+     return _claim_discount_by_object(request, user, discount, fail_silent=False)
 
 
 def _claim_discount_by_object(request, user, discount, fail_silent=False):

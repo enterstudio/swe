@@ -48,12 +48,14 @@ class UserProfile(models.Model):
 
     @classmethod
     def activate(cls, activation_key):
+        if not activation_key:
+            return None # Guard against activating with blank key
         try:
             userprofile = cls.objects.get(activation_key=activation_key)
         except cls.DoesNotExist:
-            return False
+            return None
         if userprofile.key_expires < datetime.datetime.utcnow().replace(tzinfo=timezone.utc):
-            return False
+            return None
         user = userprofile.user
         user.is_active = True
         user.save()
@@ -61,15 +63,16 @@ class UserProfile(models.Model):
 
     @classmethod
     def is_resetpassword_key_ok(cls, resetpassword_key):
+        if not resetpassword_key:
+            return None # Guard against resetting password with blank key
         try:
             userprofile = cls.objects.get(resetpassword_key=resetpassword_key)
         except cls.DoesNotExist:
-            return False
+            return None
         if userprofile.resetpassword_expires < datetime.datetime.utcnow().replace(tzinfo=timezone.utc):
-            return False
+            return None
         user = userprofile.user
         return user
-
 
     def create_activation_key(self):
         self.activation_key = self._create_key()
@@ -438,40 +441,133 @@ class ManuscriptEdit(models.Model):
 # Tests -------------------------------------------------------------------------
 
 from django.test import TestCase
-
-class NonsenseTest(TestCase):
-    def test_other(self):
-        pass
+from django.contrib import auth
+from django.contrib.auth.models import User
 
 class UserProfileTest(TestCase):
-    from django.contrib.auth.models import User
+    """ Test methods on the UserProfile class """
+
+    email = 'acro@batic.edu'
+    password = 'p4s$w0rd'
+    first_name = 'John'
+    last_name = 'Doe'
 
     def setUp(self):
         profile = UserProfile.create_user_and_profile(
-            email = 'acro@batic.edu',
-            password = 'p4s$w0rd',
-            first_name = 'John',
-            last_name = 'Doe',
+            email = self.email,
+            password = self.password,
+            first_name = self.first_name,
+            last_name = self.last_name,
             )
         self.user = profile.user
+        self.now = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
 
     def test_create_user_and_profile(self):
-        """ Verify create_user_and_profile creates User and UserProfile """
-        self.assertEqual(1,1)
+        self.assertEqual(self.user.username, self.email)
+        self.assertEqual(self.user.email, self.email)
+        self.assertTrue(auth.models.check_password(self.password, self.user.password))
+        self.assertFalse(self.user.is_active)
 
+        self.assertEqual(self.user.userprofile.active_email, self.email)
+        self.assertEqual(self.user.userprofile.active_email_confirmed, False)
+        self.assertIsNotNone(self.user.userprofile.activation_key)
+        
+        self.assertGreater(self.user.userprofile.key_expires, self.now)
 
     def test_create_activation_key(self):
-        pass
+        self.user.userprofile.activation_key = None
+        self.user.userprofile.key_expires = None
+
+        key = self.user.userprofile.create_activation_key()
+        self.assertIsNotNone(key)
+        self.assertEqual(self.user.userprofile.activation_key, key)
+        self.assertGreater(self.user.userprofile.key_expires, self.now)
 
     def test_create_reset_password_key(self):
-        pass
+        self.user.userprofile.resetpassword_key = None
+        self.user.userprofile.resetpassword_expires = None
+        key = self.user.userprofile.create_reset_password_key()
 
-    def test_create_keyTest(self):
-        pass
+        self.assertIsNotNone(key)
+        self.assertEqual(self.user.userprofile.resetpassword_key, key)
+        self.assertGreater(self.user.userprofile.resetpassword_expires, self.now)
 
-    def test_get_expirationTest(self):
-        pass
+    def test_create_key(self):
+        key1 = self.user.userprofile._create_key()
+        key2 = self.user.userprofile._create_key()
+        self.assertNotEqual(key1, key2)
 
-        # self.assertEqual(1 + 1, 2)
+    def test_get_expiration(self):
+        expiration = self.user.userprofile._get_expiration()
+        self.assertGreater(expiration, self.now)
+
+    def test_activate(self):
+        self.user.userprofile.key_expires = self.now
+        self.user.is_active = False
+
+        key = self.user.userprofile.create_activation_key()
+        self.user.userprofile.save()
+
+        activated_user = self.user.userprofile.activate(key)
+        self.assertEqual(activated_user, self.user)
+        self.assertTrue(activated_user.is_active)
+
+    def test_activate_neg_expired_key(self):
+        self.user.is_active = False
+
+        key = self.user.userprofile.create_activation_key()
+        self.user.userprofile.key_expires = self.now #key is expired
+        self.user.userprofile.save()
+
+        activated_user = self.user.userprofile.activate(key)
+        self.assertIsNone(activated_user)
+        self.assertFalse(self.user.is_active)
+
+    def test_activate_neg_blank_key(self):
+        blank_key = ''
+        self.user.is_active = False
+
+        self.user.userprofile.create_activation_key()
+        self.user.userprofile.activation_key = blank_key
+        self.user.userprofile.save()
+
+        activated_user = self.user.userprofile.activate(blank_key)
+        self.assertIsNone(activated_user)
+        self.assertFalse(self.user.is_active)
+
+    def test_is_resetpassword_key_ok(self):
+        self.user.userprofile.resetpassword_expires = self.now
+
+        key = self.user.userprofile.create_reset_password_key()
+        self.user.userprofile.save()
+
+        reset_user = self.user.userprofile.is_resetpassword_key_ok(key)
+        self.assertEqual(reset_user, self.user)
+
+    def test_is_resetpassword_key_ok_neg_expired(self):
+        key = self.user.userprofile.create_reset_password_key()
+        self.user.userprofile.resetpassword_expires = self.now #key is expired
+        self.user.userprofile.save()
+
+        reset_user = self.user.userprofile.is_resetpassword_key_ok(key)
+        self.assertIsNone(reset_user)
+
+    def test_is_resetpassword_key_ok_neg_blank_key(self):
+        blank_key = ''
+        key = self.user.userprofile.create_reset_password_key()
+        self.user.userprofile.resetpassword_key = blank_key
+        self.user.userprofile.save()
+
+        reset_user = self.user.userprofile.is_resetpassword_key_ok(blank_key)
+        self.assertIsNone(reset_user)
+
+    def test_is_resetpassword_key_ok_neg_bad_key(self):
+        bad_key = 'asdfjkl'
+        key = self.user.userprofile.create_reset_password_key()
+        self.user.userprofile.resetpassword_key = bad_key
+        self.user.userprofile.save()
+
+        reset_user = self.user.userprofile.is_resetpassword_key_ok(key)
+        self.assertIsNone(reset_user)
 
 
