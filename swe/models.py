@@ -102,21 +102,28 @@ class Document(models.Model):
     manuscript_file_key = models.CharField(max_length=255)
     original_name = models.CharField(max_length=255)
     is_upload_confirmed = models.BooleanField()
-    datetime_uploaded = models.DateTimeField()
+    datetime_uploaded = models.DateTimeField(blank=True, null=True)
     notes = models.CharField(max_length=1000, blank=True, null=True)
 
-    def create_file_key(self):
+    @staticmethod
+    def create_file_key():
         newfilename = '%s' % uuid.uuid4()
         path = strftime('%Y/%m/%d', gmtime())
         return os.path.join(path, newfilename)
+
+    @classmethod
+    def initialize_document(cls):
+        doc = cls()
+        doc.manuscript_file_key = Document.create_file_key()
+        return doc
 
     def confirm_upload(self,key):
         # Split key to get path and filename
         parts = key.split('/')
         key = '/'.join(parts[1:-1])
-        if key != self.manuscript_file_key:
-            raise Exception('The key from AWS %s does not match our records %s for this uploaded document.'
-                            % (key, self.manuscript_file_key))
+#        if key != self.manuscript_file_key:
+        raise Exception('The key from AWS %s does not match our records %s for this uploaded document.'
+                        % (key, self.manuscript_file_key))
         filename = parts[-1]
         if filename == '':
             return False
@@ -279,6 +286,13 @@ class ManuscriptOrder(models.Model):
 
     managing_editor = models.ForeignKey(User, related_name='manuscriptorder_managed_set', null=True, blank=True)
 
+    def initialize_original_document(self):
+        doc = OriginalDocument.initialize_document()
+        doc.manuscriptorder = self
+        doc.save()
+        self.save()
+        return doc
+
     def generate_invoice_id(self):
         if self.pk == None:
             raise Exception('Save the ManuscriptOrder before generating the invoice id, since pk is needed to calculate invoice id.')
@@ -399,15 +413,6 @@ class ManuscriptOrder(models.Model):
         else:
             return False
 
-    def initialize_original_document(self):
-        doc = OriginalDocument()
-        doc.manuscriptorder = self
-        doc.datetime_uploaded = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
-        doc.manuscript_file_key = doc.create_file_key()
-        doc.save()
-        self.save()
-        return doc
-            
     def __unicode__(self):
         return self.title
 
@@ -445,7 +450,9 @@ from django.contrib import auth
 from django.contrib.auth.models import User
 
 class UserProfileTest(TestCase):
-    """ Test methods on the UserProfile class """
+    """ 
+    Test methods on the UserProfile class 
+    """
 
     email = 'acro@batic.edu'
     password = 'p4s$w0rd'
@@ -570,4 +577,25 @@ class UserProfileTest(TestCase):
         reset_user = self.user.userprofile.is_resetpassword_key_ok(key)
         self.assertIsNone(reset_user)
 
+class DocumentTest(TestCase):
+    """
+    Test methods on the Document class
+    """
 
+    def setUp(self):
+        self.doc = Document.initialize_document()
+
+    def test_create_file_key(self):
+        key1 = Document.create_file_key()
+        key2 = Document.create_file_key()
+
+        self.assertNotEqual(key1, '')    # Key is generated
+        self.assertNotEqual(key1, key2)  # Key is unique
+
+    def test_confirm_upload(self):
+        # TODO
+        self.assertTrue(False)
+
+    def initialize_document(self):
+        doc = Document.initialize_document()
+        self.assertNotFalse(doc.file_key)
