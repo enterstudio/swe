@@ -280,7 +280,7 @@ def uploadmanuscript(request):
             settings.AWS_ACCESS_KEY_ID,
             settings.AWS_SECRET_ACCESS_KEY,
             settings.AWS_STORAGE_BUCKET_NAME,
-            'uploads/'+doc.manuscript_file_key+'/${filename}',
+            doc.get_upload_path(),
             expires_after = datetime.timedelta(days=1),
             success_action_redirect = settings.ROOT_URL+'awsconfirm/',
             min_size=0,

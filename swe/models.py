@@ -105,25 +105,27 @@ class Document(models.Model):
     datetime_uploaded = models.DateTimeField(blank=True, null=True)
     notes = models.CharField(max_length=1000, blank=True, null=True)
 
+    upload_prefix = 'uploads'
+
     @staticmethod
-    def create_file_key():
+    def _create_file_key():
         newfilename = '%s' % uuid.uuid4()
         path = strftime('%Y/%m/%d', gmtime())
-        return os.path.join(path, newfilename)
+        return '/'.join([path, newfilename])
 
     @classmethod
     def initialize_document(cls):
         doc = cls()
-        doc.manuscript_file_key = Document.create_file_key()
+        doc.manuscript_file_key = Document._create_file_key()
         return doc
 
     def confirm_upload(self,key):
         # Split key to get path and filename
         parts = key.split('/')
-        key = '/'.join(parts[1:-1])
-#        if key != self.manuscript_file_key:
-        raise Exception('The key from AWS %s does not match our records %s for this uploaded document.'
-                        % (key, self.manuscript_file_key))
+        key = '/'.join(parts[1:-1]) # Truncate the folder and filename
+        if key != self.manuscript_file_key:
+            raise Exception('The key from AWS %s does not match our records %s for this uploaded document.'
+                            % (key, self.manuscript_file_key))
         filename = parts[-1]
         if filename == '':
             return False
@@ -132,6 +134,9 @@ class Document(models.Model):
         self.datetime_uploaded = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
         self.save()
         return True
+
+    def get_upload_path(self):
+        return self.upload_prefix+'/'+self.manuscript_file_key+'/${filename}' #${filename} instructs AWS to write the name into the key
 
     def __unicode__(self):
         return self.original_name
@@ -582,20 +587,55 @@ class DocumentTest(TestCase):
     Test methods on the Document class
     """
 
-    def setUp(self):
-        self.doc = Document.initialize_document()
-
     def test_create_file_key(self):
-        key1 = Document.create_file_key()
-        key2 = Document.create_file_key()
+        key1 = Document._create_file_key()
+        key2 = Document._create_file_key()
 
         self.assertNotEqual(key1, '')    # Key is generated
         self.assertNotEqual(key1, key2)  # Key is unique
 
     def test_confirm_upload(self):
-        # TODO
-        self.assertTrue(False)
-
-    def initialize_document(self):
         doc = Document.initialize_document()
-        self.assertNotFalse(doc.file_key)
+        doc.manuscript_file_key = '1234abcd'
+        filename = 'file.name'
+        ok = doc.confirm_upload(doc.upload_prefix+'/'+doc.manuscript_file_key+'/'+filename)
+        self.assertTrue(ok)
+
+    def test_confirm_upload_no_file(self):
+        doc = Document.initialize_document()
+        doc.manuscript_file_key = '1234abcd'
+        filename = ''
+        ok = doc.confirm_upload(doc.upload_prefix+'/'+doc.manuscript_file_key+'/'+filename)
+        self.assertFalse(ok)
+
+    def test_initialize_document(self):
+        doc = Document.initialize_document()
+        self.assertIsNotNone(doc.manuscript_file_key)
+        # To make data portable, key stored in database should not include AWS path or keyword
+        self.assertNotIn(doc.upload_prefix, doc.manuscript_file_key)
+        self.assertNotIn('${filename}', doc.manuscript_file_key)
+
+    def test_get_upload_path(self):
+        doc = Document.initialize_document()
+        upload_path = doc.get_upload_path()
+        self.assertIn(doc.upload_prefix, upload_path)
+        self.assertIn('${filename}', upload_path)
+
+
+class ManuscriptOrderTest(TestCase):
+    pass
+#    def initialize_original_document(self):
+#    def generate_invoice_id(self):
+#    def get_service_description(self):
+#    def get_full_price(self):
+#    def get_amount_to_pay(self):
+#    def order_received_now(self):
+#    def set_current_document_version(self, doc):
+#    def order_is_ready_to_submit(self):
+#    def get_discount_claims(self):
+#    def get_unused_discount_claims(self):
+#    def add_discount_claim(self, new_claim):
+#    def reset_discount_claims(self):
+#    def calculate_price(self):
+#    def get_open_order(user):
+#    def is_exact_word_count_needed(self):
