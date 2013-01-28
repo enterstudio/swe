@@ -33,9 +33,9 @@ urlpatterns = patterns('swe.views',
                        url(r'^claimdiscount/$', 'claimdiscount'),
                        # Order
                        url(r'^order/$', redirect_to, {'url': '/order/1/'}),
-                       url(r'^order/1/$', 'order'),
-                       url(r'^order/2/$', 'serviceoptions'),
-                       url(r'^order/3/$', 'uploadmanuscript'),
+                       url(r'^order/1/$', 'uploadmanuscript'),
+                       url(r'^order/2/$', 'orderdetails'),
+                       url(r'^order/3/$', 'serviceoptions'),
                        url(r'^order/4/$', 'submit'),
                        # Payment processing
                        url(r'^awsconfirm/$', 'awsconfirm'),

@@ -5,17 +5,19 @@
 <script src="{{ STATIC_URL }}ajax_upload/js/jquery.iframe-transport.js"></script>
 <script src="{{ STATIC_URL }}ajax_upload/js/ajax-upload-widget.js"></script>
 
-<h3>Upload a manuscript</h3>
+<h4><span class="inactivecrumb"><a href="/order/1/">Upload manuscript</a> —  <span class="activecrumb">Order details</span> — Select service — Submit order</span></h4>
+
 <div class="row">
   <div class="span10 light-box">
-    <form action="/order/1/" method="post" enctype="multipart/form-data">{% csrf_token %}
+    <form action="/order/2/" method="post" enctype="multipart/form-data">{% csrf_token %}
       <table class="tbl-center">
 	{{ form.as_table }}
 	<tr>
 	  <th></th>
 	  <td>
 	    <br/><br/>
-	    <input type="submit" value="Continue >" class="btn btn-large btn-inverse" />
+	    <input type="submit" name="back" value="< Back" class="btn btn-inverse" />
+	    <input type="submit" value="Continue >" class="btn btn-inverse" />
 	  </td>
 	</tr>
       </table>

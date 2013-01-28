@@ -1,9 +1,6 @@
 {% extends "plain.html" %}
 {% block pageContentNoFormat %}
-<h3>Submit payment</h3>
-<form action="/order/4/" method="post">{% csrf_token %}
-<input type="submit" name="back" value="< Back" class="btn btn-small btn-inverse" />
-</form>
+<h4><span class="inactivecrumb"><a href="/order/1/">Upload manuscript</a> — <a href="/order/2/">Order details</a> — <a href="/order/3/">Select service</a> — <span class="activecrumb">Submit order</span></span></h4>
 <p class="right">
   Invoice # {{ invoice.invoice_id }}
 </p>
@@ -75,7 +72,7 @@
 	    {% for field in selectdiscountform %}{{field}}{% endfor %}
 	  </td>
 	  <td>
-	    <input type="submit" name="select" value="Apply" class="btn btn-small">
+	    <input type="submit" name="select" value="Apply" class="btn">
 	  </td>
 	</form>
       </tr>
@@ -86,7 +83,7 @@
 	    {% for field in claimdiscountform %}{{field.errors}}{{field}}{% endfor %}
 	  </td>
 	  <td>
-	    <input type="submit" name="claim" value="Apply" class="btn btn-small">
+	    <input type="submit" name="claim" value="Apply" class="btn">
 	  </td>
 	</form>
       </tr>
@@ -97,14 +94,21 @@
 
 <div class="center">
   {% if paid_service %}
+  <br/>
   <p>
     {{ pay_button_message }}
   </p>
+  <br/>
   {{ pay_button }}
+  <br/>
   {% else %}
   <form action="/order/4/" method="post" enctype="multipart/form-data">{% csrf_token %}
     <input type="submit" name="submit-order" value="Submit Order" class="btn btn-large btn-warning" />
   </form>
   {% endif %}
 </div>
+
+<form action="/order/4/" method="post">{% csrf_token %}
+  <input type="submit" name="back" value="< Back" class="btn btn-inverse" />
+</form>
 {% endblock %}

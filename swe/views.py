@@ -167,106 +167,6 @@ def account(request):
                 }))
 
 
-@user_passes_test(logged_in_and_active, login_url='/register/')
-@user_passes_test(is_service_available, login_url='/comebacksoon/')
-def order(request):
-    order = models.ManuscriptOrder.get_open_order(request.user)
-    if request.method == 'POST':
-        form = forms.OrderForm(request.POST)
-        if form.is_valid():
-            if not order:
-                # ManuscriptOrder is not yet defined. Create one.
-                order = models.ManuscriptOrder(customer=request.user)
-                order.save()
-                order.generate_invoice_id() #Must save first because this uses the pk
-                order.save()
-            new_data=form.cleaned_data
-            order.title=new_data[u'title']
-            try:
-                order.subject=models.Subject.objects.get(pk=int(new_data[u'subject']))
-            except models.Subject.DoesNotExist:
-                raise Exception('Could not find Subject with pk=%s' % new_data[u'subject'])
-            # If changing wordcountrange, reset fields whose values may no longer be valid: 
-            #   pricepoint, word_count_exact, and servicetype
-            # TODO move this to a setter on the model
-            try:
-                new_wordcountrange = models.WordCountRange.objects.get(pk=int(new_data[u'word_count']))
-            except models.WordCountRange.DoesNotExist:
-                raise Exception('Could not find WordCountRange with pk=%s' % new_data[u'word_count'])
-            if order.wordcountrange != new_wordcountrange:
-                order.wordcountrange = new_wordcountrange
-                order.servicetype = None
-                order.word_count_exact = None
-                order.pricepoint = None
-            order.save()
-            return HttpResponseRedirect('/order/2/')
-        else: # Invalid form
-            messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
-            return render_to_response("order/order_form.html", RequestContext(request, {'form': form}))
-    else: #GET request
-        if order: # Populate form with data from earlier order that was not submitted.
-            initial = {u'title': order.title}
-            try:
-                subject = order.subject.pk
-                initial[u'subject'] = subject
-            except:
-                pass # no subject selected
-            try:
-                word_count = order.wordcountrange.pk
-                initial[u'word_count'] = word_count
-            except:
-                pass # no word count selected
-            form = forms.OrderForm(initial=initial)
-            return render_to_response("order/order_form.html", RequestContext(request, {'form': form}))
-        else:
-            form = forms.OrderForm()
-            return render_to_response("order/order_form.html", RequestContext(request, {'form': form}))
-
-
-@user_passes_test(logged_in_and_active)
-@user_passes_test(is_service_available, login_url='/comebacksoon/')
-def serviceoptions(request):
-    order = models.ManuscriptOrder.get_open_order(request.user)
-    if not order:
-        return HttpResponseRedirect('/order/1/')
-    if request.method == 'POST':
-        form = forms.SelectServiceForm(order, request.POST)
-        if form.is_valid():
-            new_data=form.cleaned_data            
-            try:
-                order.pricepoint = models.PricePoint.objects.get(pk=int(new_data[u'servicetype']))
-            except models.PricePoint.DoesNotExist:
-                raise Exception('Could not find pricepoint with pk=%s' % int(new_data[u'servicetype']))
-            order.servicetype = order.pricepoint.servicetype
-            try:
-                order.word_count_exact = new_data[u'word_count_exact']
-            except KeyError:
-                order.word_count_exact = None
-            order.save()
-            if request.POST.get(u'back'): # Go back after saving
-                return HttpResponseRedirect('/order/1/')
-            else:
-                return HttpResponseRedirect('/order/3/')
-        else: # Invalid form
-            if request.POST.get(u'back'): # Go back without saving
-                return HttpResponseRedirect('/order/1/')
-            else:
-                messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
-                return render_to_response('order/service_options.html', RequestContext(request, {'form': form}))
-    else: #GET is expected if redirected from previous page of order form
-        # Initialize form with saved data if available
-        initial = {}
-        if order.word_count_exact is not None:
-            initial[u'word_count_exact'] = order.word_count_exact
-        if order.pricepoint is not None:
-            try:
-                initial[u'servicetype'] = order.pricepoint.pk
-            except:
-                pass # pricepoint not defined
-        form = forms.SelectServiceForm(order, initial=initial)
-        return render_to_response('order/service_options.html', RequestContext(request, {'form': form}))
-                
-
 @user_passes_test(logged_in_and_active)
 @user_passes_test(is_service_available, login_url='/comebacksoon/')
 def uploadmanuscript(request):
@@ -275,37 +175,44 @@ def uploadmanuscript(request):
             doc = order.originaldocument
         except models.OriginalDocument.DoesNotExist:
             doc = order.initialize_original_document()
-             
-        s3uploadform = forms.S3UploadForm(
-            settings.AWS_ACCESS_KEY_ID,
-            settings.AWS_SECRET_ACCESS_KEY,
-            settings.AWS_STORAGE_BUCKET_NAME,
-            doc.get_upload_path(),
-            expires_after = datetime.timedelta(days=1),
-            success_action_redirect = settings.ROOT_URL+'awsconfirm/',
-            min_size=0,
-            max_size=20971520, # 20 MB
-            )
+
+        if settings.LOCAL_STORAGE:
+            s3uploadform = None
+            s3bucket = None
+        else:
+            s3uploadform = forms.S3UploadForm(
+                settings.AWS_ACCESS_KEY_ID,
+                settings.AWS_SECRET_ACCESS_KEY,
+                settings.AWS_STORAGE_BUCKET_NAME,
+                doc.get_upload_path(),
+                expires_after = datetime.timedelta(days=1),
+                success_action_redirect = settings.ROOT_URL+'awsconfirm/',
+                min_size=0,
+                max_size=20971520, # 20 MB
+                )
+            s3bucket = settings.AWS_STORAGE_BUCKET_NAME
         return render_to_response('order/upload_manuscript.html', 
                                   RequestContext(request,{ 
                     'form': s3uploadform,
-                    'BUCKET_NAME': settings.AWS_STORAGE_BUCKET_NAME,
+                    'BUCKET_NAME': s3bucket,
                     'UPLOAD_SUCCESSFUL': doc.is_upload_confirmed,
                     'FILENAME': doc.original_name,
                     }))
-
-    order = models.ManuscriptOrder.get_open_order(request.user)
+        # end render_page
+    order = models.ManuscriptOrder.get_open_order(request.user)        
     if not order:
-        return HttpResponseRedirect('/order/1/')
+        # ManuscriptOrder is not yet defined. Create one.
+        order = models.ManuscriptOrder(customer=request.user)
+        order.save()
+        order.generate_invoice_id() #Must save first because this uses the pk
+        order.save()
+
     if request.method == 'POST':
-        if request.POST.get(u'back'):
+        if order.originaldocument.is_upload_confirmed:
             return HttpResponseRedirect('/order/2/')
         else:
-            if order.originaldocument.is_upload_confirmed:
-                return HttpResponseRedirect('/order/4/')
-            else:
-                messages.error(request, _('You must upload a file to continue.'))
-                return render_page(order)
+            messages.error(request, _('You must upload a file to continue.'))
+            return render_page(order)
     else:
         return render_page(order)
 
@@ -326,11 +233,117 @@ def awsconfirm(request):
         raise Exception('Could not find AWS file key.')
     if not doc.confirm_upload(key):
         messages.add_message(request, messages.ERROR, _('Please choose a file to be uploaded.'))
-        return HttpResponseRedirect('/order/3/')
+        return HttpResponseRedirect('/order/1/')
     order.set_current_document_version(doc)
     order.save()
     messages.add_message(request, messages.SUCCESS, 'The file %s was uploaded successfully.' % doc.original_name)
-    return HttpResponseRedirect('/order/3/')
+    return HttpResponseRedirect('/order/2/')
+
+
+@user_passes_test(logged_in_and_active, login_url='/register/')
+@user_passes_test(is_service_available, login_url='/comebacksoon/')
+def orderdetails(request):
+    order = models.ManuscriptOrder.get_open_order(request.user)
+    if not order:
+        return HttpResponseRedirect('/order/1/')
+    if not order.order_is_ready_1():
+        return HttpResponseRedirect('/order/1/')
+    if request.method == 'POST':
+        form = forms.OrderForm(request.POST)
+        if form.is_valid():
+            new_data=form.cleaned_data
+            order.title=new_data[u'title']
+            try:
+                order.subject=models.Subject.objects.get(pk=int(new_data[u'subject']))
+            except models.Subject.DoesNotExist:
+                raise Exception('Could not find Subject with pk=%s' % new_data[u'subject'])
+            # If changing wordcountrange, reset fields whose values may no longer be valid: 
+            #   pricepoint, word_count_exact, and servicetype
+            # TODO move this to a setter on the model
+            try:
+                new_wordcountrange = models.WordCountRange.objects.get(pk=int(new_data[u'word_count']))
+            except models.WordCountRange.DoesNotExist:
+                raise Exception('Could not find WordCountRange with pk=%s' % new_data[u'word_count'])
+            if order.wordcountrange != new_wordcountrange:
+                order.wordcountrange = new_wordcountrange
+                order.servicetype = None
+                order.word_count_exact = None
+                order.pricepoint = None
+            order.save()
+            if request.POST.get(u'back'): # Go back after saving
+                return HttpResponseRedirect('/order/1/')
+            else:
+                return HttpResponseRedirect('/order/3/')
+        else: # Invalid form
+            if request.POST.get(u'back'): # Go back without saving
+                return HttpResponseRedirect('/order/1/')
+            else:
+                messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
+                return render_to_response("order/order_details.html", RequestContext(request, {'form': form}))
+    else: #GET request
+        if order: # Populate form with data from earlier order that was not submitted.
+            initial = {u'title': order.title}
+            try:
+                subject = order.subject.pk
+                initial[u'subject'] = subject
+            except:
+                pass # no subject selected
+            try:
+                word_count = order.wordcountrange.pk
+                initial[u'word_count'] = word_count
+            except:
+                pass # no word count selected
+            form = forms.OrderForm(initial=initial)
+            return render_to_response("order/order_details.html", RequestContext(request, {'form': form}))
+        else:
+            form = forms.OrderForm()
+            return render_to_response("order/order_details.html", RequestContext(request, {'form': form}))
+
+
+@user_passes_test(logged_in_and_active)
+@user_passes_test(is_service_available, login_url='/comebacksoon/')
+def serviceoptions(request):
+    order = models.ManuscriptOrder.get_open_order(request.user)
+    if not order:
+        return HttpResponseRedirect('/order/1/')
+    if not order.order_is_ready_2():
+        return HttpResponseRedirect('/order/2/')
+    if request.method == 'POST':
+        form = forms.SelectServiceForm(order, request.POST)
+        if form.is_valid():
+            new_data=form.cleaned_data            
+            try:
+                order.pricepoint = models.PricePoint.objects.get(pk=int(new_data[u'servicetype']))
+            except models.PricePoint.DoesNotExist:
+                raise Exception('Could not find pricepoint with pk=%s' % int(new_data[u'servicetype']))
+            order.servicetype = order.pricepoint.servicetype
+            try:
+                order.word_count_exact = new_data[u'word_count_exact']
+            except KeyError:
+                order.word_count_exact = None
+            order.save()
+            if request.POST.get(u'back'): # Go back after saving
+                return HttpResponseRedirect('/order/2/')
+            else:
+                return HttpResponseRedirect('/order/4/')
+        else: # Invalid form
+            if request.POST.get(u'back'): # Go back without saving
+                return HttpResponseRedirect('/order/2/')
+            else:
+                messages.add_message(request, messages.ERROR, MessageCatalog.form_invalid)
+                return render_to_response('order/service_options.html', RequestContext(request, {'form': form}))
+    else: #GET is expected if redirected from previous page of order form
+        # Initialize form with saved data if available
+        initial = {}
+        if order.word_count_exact is not None:
+            initial[u'word_count_exact'] = order.word_count_exact
+        if order.pricepoint is not None:
+            try:
+                initial[u'servicetype'] = order.pricepoint.pk
+            except:
+                pass # pricepoint not defined
+        form = forms.SelectServiceForm(order, initial=initial)
+        return render_to_response('order/service_options.html', RequestContext(request, {'form': form}))
 
 
 def acknowledge_payment_received(invoice):
@@ -426,15 +439,15 @@ def submit(request):
                 context["pay_button"] = form.render()
             else:
                 context["pay_button"] = form.sandbox()
-            context["pay_button_message"] = _('Clicking the "Buy Now" button will take you away from this site. Please complete your secure payment with PayPal.')
+            context["pay_button_message"] = mark_safe(_('Clicking the "Buy Now" button will submit your order and take you away from this site.')+'<br/>'+_('Please complete your secure payment with PayPal.'))
             return render_to_response("order/submit_payment.html", RequestContext(request, context))
 
     order = models.ManuscriptOrder.get_open_order(request.user)
     if not order:
         return HttpResponseRedirect('/order/1/')
     if not order.order_is_ready_to_submit():
-        messages.error(request, _('The order is not complete. Please review the order and supply all needed information.'))
-        return HttpResponseRedirect('/order/1/')
+        messages.error(request, 'The order is not complete. Please review the order and supply all needed information.')
+        return HttpResponseRedirect('/order/3/')
     if request.method == 'POST':
         if request.POST.get(u'back'):
             return HttpResponseRedirect('/order/3/')

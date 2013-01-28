@@ -1,6 +1,8 @@
 {% extends "plain.html" %}
 {% block pageContentNoFormat %}
-<h3>Upload manuscript</h3>
+
+<h4><span class="inactivecrumb"><span class="activecrumb">Upload manuscript</span> — Order details — Select service — Submit order</span></h4>
+
 <div class="row">
   <div class="span10 light-box">
     <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
@@ -20,49 +22,47 @@
               }
             })
           })
-        </script>
-    </head>
+    </script>
+
     <form id='upload_form' action="https://{{ BUCKET_NAME }}.s3.amazonaws.com/" method="post" enctype="multipart/form-data">
       <table class="tbl-center">
-	<tbody>
-	  {{form.key}}
-	  {{form.AWSAccessKeyId}}
-	  {{form.acl}}
-	  {{form.success_action_redirect}}
-	  {{form.policy}}
-	  {{form.signature}}
-	  <tr>
-	    <th>
-	      {{form.file}}
-	    </th>
-	    <td>
-	      <input type="submit" value="Upload" class="btn btn-small"/>
-	    </td>
-	  </tr>
-	</tbody>
+	{{form.key}}
+	{{form.AWSAccessKeyId}}
+	{{form.acl}}
+	{{form.success_action_redirect}}
+	{{form.policy}}
+	{{form.signature}}
+	<tr>
+	  <th>
+	    Please submit your manuscript in an editable text format, such as doc, docx, odt, uof, rtf, or txt
+	  </th>
+	  <td>
+	    {{form.file}}
+	    <br/>
+	    <input type="submit" value="Upload" class="btn"/>
+	  </td>
+	</tr>
       </table>
     </form>
-    <form action="/order/3/" method="post">{% csrf_token %}
+    {% if UPLOAD_SUCCESSFUL %}
+    <form action="/order/1/" method="post">{% csrf_token %}
       <table class="tbl-center">
-	{% if UPLOAD_SUCCESSFUL %}
 	<tr>
-	    <th></th>
-	    <td>
-	      Uploaded: {{ FILENAME }}
-	      <br><br>
-	    </td>
+	  <th></th>
+	  <td>
+	    Uploaded: {{ FILENAME }}
+	    <br/><br/>
+	  </td>
 	</tr>
-	{% endif %}
 	<tr>
-	    <th></th>
-	    <td>
-	      <input type="submit" name="back" value="< Back" class="btn btn-large btn-inverse" />
-              <input type="submit" name="continue" value="Continue >" class="btn btn-large btn-inverse" />
-	    </td>
+	  <th></th>
+	  <td>
+            <input type="submit" name="continue" value="Continue >" class="btn btn-inverse"/>
+	  </td>
 	</tr>
       </table>
     </form>
+    {% endif %}
   </div>
 </div>
-
 {% endblock %}

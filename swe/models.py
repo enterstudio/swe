@@ -346,22 +346,36 @@ class ManuscriptOrder(models.Model):
     def set_current_document_version(self, doc):
         self.current_document_version = Document.objects.get(id=doc.document_ptr_id)
 
-    def order_is_ready_to_submit(self):
-        #Verify that required fields are defined
+    def order_is_ready_1(self):
         try:
             file_is_uploaded = self.originaldocument.is_upload_confirmed
         except:
             file_is_uploaded = False
         is_ready = (
             (self.invoice_id is not None) and 
-            (self.customer is not None) and 
-            (self.servicetype is not None) and 
-            (self.wordcountrange is not None) and 
-            (self.pricepoint is not None) and 
+            (self.customer is not None) and
             (self.is_payment_complete == False) and
             file_is_uploaded
             )
         return is_ready
+
+    def order_is_ready_2(self):
+        is_ready = (
+            self.order_is_ready_1() and
+            (self.wordcountrange is not None)
+            )
+        return is_ready
+
+    def order_is_ready_3(self):
+        is_ready = (
+            self.order_is_ready_2() and
+            (self.servicetype is not None) and 
+            (self.pricepoint is not None)
+            )
+        return is_ready
+
+    def order_is_ready_to_submit(self):
+        return self.order_is_ready_3()
 
     def get_discount_claims(self):
         return self.discount_claims.all()
