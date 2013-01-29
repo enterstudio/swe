@@ -767,7 +767,7 @@ def claimdiscount(request):
 @csrf_exempt
 def paymentcanceled(request):
     messages.add_message(request, messages.ERROR, _('Payment failed. Please contact support for further assistance.'))
-    return HttpResponseRedirect('/home/')
+    return HttpResponseRedirect('/order/4/')
 
 
 @csrf_exempt
