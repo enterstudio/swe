@@ -111,6 +111,7 @@ font-weight: bold;
 text-align: left;
 position: relative;
 z-index: 2;
+background-color: #020233;
 background-image: linear-gradient(bottom, rgb(2,2,51) 44%, rgb(49,49,135) 75%, rgb(27,27,112) 100%);
 background-image: -o-linear-gradient(bottom, rgb(2,2,51) 44%, rgb(49,49,135) 75%, rgb(27,27,112) 100%);
 background-image: -moz-linear-gradient(bottom, rgb(2,2,51) 44%, rgb(49,49,135) 75%, rgb(27,27,112) 100%);
@@ -211,6 +212,7 @@ box-shadow: 1px 2px 4px #888;
 box-shadow: 1px 1px 3px #000;
 }
 .light-box{
+background-color: #faa732;
 background-image: linear-gradient(bottom, rgb(250,167,50) 29%, rgb(250,200,135) 65%, rgb(250,185,95) 83%);
 background-image: -o-linear-gradient(bottom, rgb(250,167,50) 29%, rgb(250,200,135) 65%, rgb(250,185,95) 83%);
 background-image: -moz-linear-gradient(bottom, rgb(250,167,50) 29%, rgb(250,200,135) 65%, rgb(250,185,95) 83%);
@@ -230,6 +232,7 @@ color: #000;
 padding:40px 0 20px 0;
 }
 .home-content{
+background-color: #020233;
 background-image: linear-gradient(bottom, rgb(1,1,43) 47%, rgb(3,26,71) 74%, rgb(2,2,51) 87%);
 background-image: -o-linear-gradient(bottom, rgb(1,1,43) 47%, rgb(3,26,71) 74%, rgb(2,2,51) 87%);
 background-image: -moz-linear-gradient(bottom, rgb(1,1,43) 47%, rgb(3,26,71) 74%, rgb(2,2,51) 87%);
