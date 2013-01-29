@@ -342,6 +342,7 @@ class ManuscriptOrder(models.Model):
         for claim in claims:
             if not claim.discount.persists_after_use:
                 claim.date_used = now
+                claim.save()
 
     def set_current_document_version(self, doc):
         self.current_document_version = Document.objects.get(id=doc.document_ptr_id)
