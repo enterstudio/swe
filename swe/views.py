@@ -151,14 +151,14 @@ def logout(request):
         auth.logout(request)
         return HttpResponseRedirect('/home/')
     else:
-        raise Http404
+        return HttpResponseRedirect('/home/')
 
 
 @user_passes_test(logged_in_and_active, login_url='/login/')
 @user_passes_test(is_service_available, login_url='/comebacksoon/')
 def account(request):
     discounts = coupons.get_available_discounts(request.user)
-    orders = request.user.manuscriptorder_set.all()
+    orders = models.ManuscriptOrder.get_completed_orders(request.user)
     return render_to_response(
         "account/account.html", 
         RequestContext(request, {
@@ -199,7 +199,7 @@ def uploadmanuscript(request):
                     'FILENAME': doc.original_name,
                     }))
         # end render_page
-    order = models.ManuscriptOrder.get_open_order(request.user)        
+    order = models.ManuscriptOrder.get_open_order(request.user)
     if not order:
         # ManuscriptOrder is not yet defined. Create one.
         order = models.ManuscriptOrder(customer=request.user)
@@ -650,6 +650,8 @@ def activationrequest(request):
 
 @user_passes_test(is_service_available, login_url='/comebacksoon/')
 def requestresetpassword(request):
+    if request.user.is_authenticated():
+        return HttpResponseRedirect('/account/')
     if request.method=='POST':
         form = forms.RequestResetPasswordForm(request.POST)
         # TODO: Use captcha

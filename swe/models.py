@@ -422,6 +422,10 @@ class ManuscriptOrder(models.Model):
             raise Exception('Multiple open orders were found.')
         return order
 
+    @staticmethod
+    def get_completed_orders(user):
+        return user.manuscriptorder_set.filter(is_payment_complete=True)            
+
     def is_exact_word_count_needed(self):
         try:
             max_words = self.wordcountrange.max_words
