@@ -96,6 +96,9 @@ def careers(request):
 def contact(request):
     return render_to_response("home/contact.html", RequestContext(request, {}))
 
+def founder(request):
+    return render_to_response("home/founder.html", RequestContext(request, {}))
+
 
 def block(request):
     return render_to_response("home/block.html", RequestContext(request, {}))

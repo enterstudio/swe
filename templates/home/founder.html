@@ -1,0 +1,45 @@
+{% extends "plain.html" %}
+{% block pageContent %}
+<div class="row">
+  <div class="offset1 span10">
+    <h4>A message from our founder</h4>
+  </div>
+</div>
+<div class="row">
+  <div class="span2 offset1">
+    <img src="{{STATIC_URL}}img/nathanhammond.jpg" height=199 width=300></img>
+  </div>
+  <div class="span7">
+    <p>
+      Thank you for your interest in Science Writing Experts.
+    </p>
+    <p>
+      My name is Nathan Hammond, and I created Science Writing Experts to help researchers who publish in English as a non-native language. At Science Writing Experts we help you eliminate language errors and give your writing a clear and natural flow, so that you can publish your work in top journals and reach the worldwide scientific community.
+    </p>
+    <p>
+      I am from the United States and received my PhD from MIT in 2010. Having studied Spanish, French, and Chinese, I understand the challenge of writing professional-quality work in a language that you did not learn as a child, even if you are quite fluent.
+    </p>
+    <p>
+      Please feel free to explore our website, register for an account, and request a free trial to see what Science Writing Experts can do for you.
+    </p>
+    <p>
+      Sincerely,<br/>
+      Nathan Hammond, PhD<br/>
+      Founder and Managing Editor<br/>
+      <a href="mailto:nhammond@sciencewritingexperts.com">nhammond@sciencewritingexperts.com</a>
+    </p>
+  </div>
+</div>
+<div class="row">
+  <div class="span5 offset4">
+    <br>
+    <form action="/service/" method="link" class="learn-more">
+      <input type="submit" value="Learn More" class="btn btn-large learn-more">
+    </form>
+    <form action="/order/" method="link" class="try-it">
+      <input type="submit" value="Place an Order" class="btn btn-large btn-warning try-it">
+    </form>
+  </div>
+</div>
+
+{% endblock %}

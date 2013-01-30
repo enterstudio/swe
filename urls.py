@@ -21,6 +21,7 @@ urlpatterns = patterns('swe.views',
                        url(r'^terms/$', 'terms'),
                        url(r'^contact/$', 'contact'),
                        url(r'^careers/$', 'careers'),
+                       url(r'^founder/$', 'founder'),
                        # Misc forms
                        url(r'^confirm/(?P<activation_key>\w*)$', 'confirmactivation'),
                        url(r'^activationrequest/$', 'activationrequest'),
