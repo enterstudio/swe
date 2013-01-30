@@ -11,11 +11,14 @@ admin.autodiscover()
 
 urlpatterns = patterns('swe.views',
                        url(r'^sitemap.xml$', 
-                           TemplateView.as_view(template_name='sitemap.xml'),
+                           TemplateView.as_view(template_name='site/sitemap.xml'),
                            name='sitemap'),
                        url(r'^robots.txt$', 
-                           TemplateView.as_view(template_name='robots.txt'),
+                           TemplateView.as_view(template_name='site/robots.txt'),
                            name='robots'),
+                       url(r'^google6191c7be2e807402.html$', 
+                           TemplateView.as_view(template_name='site/google6191c7be2e807402.html'),
+                           name='googleverification'),
                        # Content pages
                        url(r'^$', 'home'),
                        url(r'^home/$', 'home'),
