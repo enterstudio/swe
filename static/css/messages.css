@@ -39,29 +39,33 @@ body {
 
 .info {
     color: #020233;
-    border-color: #0072a0;
-    background-color: #37BAF8;
-    background-image: url('../img/info.png');
+    border-color: #37BAF8;
+    border-style: solid;
+    border-width: 4px;
+    border-radius: 5px;
 }
 
 .success {
     color: #060b04;
-    border-color: #427c2c;
-    background-color: #5bbc35;
-    background-image: url('../img/success.png');
+    border-color: #5bbc35;
+    border-style: solid;
+    border-width: 4px;
+    border-radius: 5px;
 }
 
 .warning {
     color: #202020;
-    border-color: #F89406;
-    background-color: #FAAE43;
-    background-image: url('../img/warning.png');
+    border-color: #FAAE43;
+    border-style: solid;
+    border-width: 4px;
+    border-radius: 5px;
 }
 
 .error {
     color: #110404;
-    border-color: #bd0c10; 
-    background-color: #c93939;
-    background-image: url('../img/error.png');
+    border-color: #c93939;
+    border-style: solid;
+    border-width: 4px;
+    border-radius: 5px;
 }
 /******** /User feedback messages ********/
