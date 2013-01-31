@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset
+      xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+            http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+<url>
+  <loc>http://www.sciencewritingexperts.com/</loc>
+  <lastmod>2013-01-30T14:29:15+00:00</lastmod>
+  <changefreq>daily</changefreq>
+  <priority>1.00</priority>
+</url>
+<url>
+  <loc>http://www.sciencewritingexperts.com/home/</loc>
+  <lastmod>2013-01-30T14:29:15+00:00</lastmod>
+  <changefreq>daily</changefreq>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>http://www.sciencewritingexperts.com/register/</loc>
+  <lastmod>2013-01-30T14:29:15+00:00</lastmod>
+  <changefreq>daily</changefreq>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>http://www.sciencewritingexperts.com/login/</loc>
+  <lastmod>2013-01-30T14:29:15+00:00</lastmod>
+  <changefreq>daily</changefreq>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>http://www.sciencewritingexperts.com/service/</loc>
+  <lastmod>2013-01-30T14:29:15+00:00</lastmod>
+  <changefreq>daily</changefreq>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>http://www.sciencewritingexperts.com/prices/</loc>
+  <lastmod>2013-01-30T14:29:15+00:00</lastmod>
+  <changefreq>daily</changefreq>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>http://www.sciencewritingexperts.com/about/</loc>
+  <lastmod>2013-01-30T14:29:15+00:00</lastmod>
+  <changefreq>daily</changefreq>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>http://www.sciencewritingexperts.com/contact/</loc>
+  <lastmod>2013-01-30T14:29:15+00:00</lastmod>
+  <changefreq>daily</changefreq>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>http://www.sciencewritingexperts.com/careers/</loc>
+  <lastmod>2013-01-30T14:29:15+00:00</lastmod>
+  <changefreq>daily</changefreq>
+  <priority>0.80</priority>
+</url>
+<url>
+  <loc>http://www.sciencewritingexperts.com/founder/</loc>
+  <lastmod>2013-01-30T14:29:15+00:00</lastmod>
+  <changefreq>daily</changefreq>
+  <priority>0.40</priority>
+</url>
+<url>
+  <loc>http://www.sciencewritingexperts.com/terms/</loc>
+  <lastmod>2013-01-30T14:29:15+00:00</lastmod>
+  <changefreq>daily</changefreq>
+  <priority>0.40</priority>
+</url>
+<url>
+  <loc>http://www.sciencewritingexperts.com/privacy/</loc>
+  <lastmod>2013-01-30T14:29:15+00:00</lastmod>
+  <changefreq>daily</changefreq>
+  <priority>0.40</priority>
+</url>
+<url>
+  <loc>http://www.sciencewritingexperts.com/resetpassword/</loc>
+  <lastmod>2013-01-30T14:29:15+00:00</lastmod>
+  <changefreq>daily</changefreq>
+  <priority>0.20</priority>
+</url>
+</urlset>
