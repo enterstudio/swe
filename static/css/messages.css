@@ -39,33 +39,52 @@ body {
 
 .info {
     color: #020233;
-    border-color: #37BAF8;
+    background-color: #37BAF8;
+    border-color: #FFFFFF;
     border-style: solid;
-    border-width: 4px;
+    border-width: 1px;
     border-radius: 5px;
+    -webkit-box-shadow: 0px 1px 3px #3D4654;
+    -moz-box-shadow: 0px 1px 3px #3D4654;
+    box-shadow: 0px 1px 3px #3D4654;
 }
 
 .success {
     color: #060b04;
-    border-color: #5bbc35;
+    background-color: #5bbc35;
+    border-color: #FFFFFF;
     border-style: solid;
-    border-width: 4px;
+    border-width: 1px;
     border-radius: 5px;
+    -webkit-box-shadow: 0px 1px 3px #3D4654;
+    -moz-box-shadow: 0px 1px 3px #3D4654;
+    box-shadow: 0px 1px 3px #3D4654;
+
 }
 
 .warning {
     color: #202020;
-    border-color: #FAAE43;
+    background-color: #FAAE43;
+    border-color: #FFFFFF;
     border-style: solid;
-    border-width: 4px;
+    border-width: 1px;
     border-radius: 5px;
+    -webkit-box-shadow: 0px 1px 3px #3D4654;
+    -moz-box-shadow: 0px 1px 3px #3D4654;
+    box-shadow: 0px 1px 3px #3D4654;
+
 }
 
 .error {
     color: #110404;
-    border-color: #c93939;
+    background-color: #c93939;
+    border-color: #FFFFFF;
     border-style: solid;
-    border-width: 4px;
+    border-width: 1px;
     border-radius: 5px;
+    -webkit-box-shadow: 0px 1px 3px #3D4654;
+    -moz-box-shadow: 0px 1px 3px #3D4654;
+    box-shadow: 0px 1px 3px #3D4654;
+
 }
 /******** /User feedback messages ********/
