@@ -472,6 +472,8 @@ class ManuscriptEdit(models.Model):
 from django.test import TestCase
 from django.contrib import auth
 from django.contrib.auth.models import User
+import south
+from south.models import MigrationHistory
 
 class UserProfileTest(TestCase):
     """ 
@@ -641,8 +643,8 @@ class DocumentTest(TestCase):
         self.assertIn('${filename}', upload_path)
 
 
-class ManuscriptOrderTest(TestCase):
-    pass
+#class ManuscriptOrderTest(TestCase):
+#    pass
 #    def initialize_original_document(self):
 #    def generate_invoice_id(self):
 #    def get_service_description(self):
@@ -658,3 +660,19 @@ class ManuscriptOrderTest(TestCase):
 #    def calculate_price(self):
 #    def get_open_order(user):
 #    def is_exact_word_count_needed(self):
+
+class VerifyMigrationsTest(TestCase):
+
+    def test_migrations_complete(self):
+        apps  = list(south.migration.all_migrations())
+        
+        applied_migrations = MigrationHistory.objects.filter(app_name__in=[app.app_label() for app in apps])
+        applied_migrations = ['%s.%s' % (mi.app_name,mi.migration) for mi in applied_migrations]
+        
+        num_new_migrations = 0
+        for app in apps:
+            for migration in app:
+                if migration.app_label() + "." + migration.name() not in applied_migrations:
+                    num_new_migrations = num_new_migrations + 1
+
+        self.assertTrue(num_new_migrations==0,'There are %s South migrations still pending' % num_new_migrations)
