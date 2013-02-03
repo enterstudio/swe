@@ -24,7 +24,7 @@ except KeyError:
 TEMPLATE_DEBUG = DEBUG
 
 ADMINS = (
-    ('Nathan Hammond', 'support@sciencewritingexpets.com'),
+    ('Nathan Hammond', 'support@sciencewritingexperts.com'),
     )
 
 MANAGERS = ADMINS
